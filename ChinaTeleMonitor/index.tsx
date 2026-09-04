@@ -10,6 +10,7 @@ import {
   Text,
   TextField,
   useState,
+  Widget,
 } from "scripting"
 import {
   clearLoginState,
@@ -97,6 +98,7 @@ function SettingsPage() {
       setTrustedDeviceId(normalizedDeviceId)
       setLoginSaved(true)
       setStatus(`${maskedPhone(normalizedPhone)} 登录成功，凭据已安全保存`)
+      Widget.reloadAll()
     } catch (error) {
       setLoginSaved(hasSavedLogin())
       setStatus(`保存失败：${errorMessage(error)}`)
@@ -127,6 +129,7 @@ function SettingsPage() {
       setLastRefreshAt(result.updatedAt)
       setLoginSaved(true)
       setStatus(result.relogged ? "重新登录并刷新成功" : "套餐数据刷新成功")
+      Widget.reloadAll()
     } catch (error) {
       setStatus(`刷新失败：${errorMessage(error)}`)
     } finally {
@@ -139,6 +142,7 @@ function SettingsPage() {
     setPassword("")
     setLoginSaved(false)
     setStatus("登录状态已清除，普通设置与套餐缓存已保留")
+    Widget.reloadAll()
   }
 
   return (
@@ -192,6 +196,16 @@ function SettingsPage() {
             title={busy ? "处理中…" : "手动刷新"}
             systemImage="arrow.clockwise"
             action={handleManualRefresh}
+          />
+          <Button
+            title="预览小号小组件"
+            systemImage="rectangle"
+            action={() => Widget.preview({ family: "systemSmall" })}
+          />
+          <Button
+            title="预览中号小组件"
+            systemImage="rectangle.split.3x1"
+            action={() => Widget.preview({ family: "systemMedium" })}
           />
           <Button
             title="清除登录状态"
