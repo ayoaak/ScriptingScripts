@@ -6,6 +6,7 @@ export const TELECOM_QUERY_URL =
 const LOGIN_CLIENT_TYPE = "#12.2.0#channel50#iPhone 14 Pro#"
 const QUERY_CLIENT_TYPE = "#12.2.0#channel50#iPhone 14 Pro#"
 const SYSTEM_VERSION = "15.4.0"
+const LOGIN_DEVICE_DESCRIPTION = "iPhone 14 15.4."
 const SHOP_ID = "20002"
 const SOURCE = "110003"
 const SOURCE_PASSWORD = "Sid98s"
@@ -53,6 +54,7 @@ export interface TelecomLoginInfo extends Record<string, unknown> {
 }
 
 export type TelecomKnownErrorCode =
+  | "3001"
   | "3005"
   | "3006"
   | "3007"
@@ -310,8 +312,19 @@ export function formatTelecomTimestamp(date = new Date()): string {
   ].join("")
 }
 
+export function formatTelecomLoginTimestamp(date = new Date()): string {
+  return [
+    date.getFullYear(),
+    twoDigits(date.getMonth() + 1),
+    twoDigits(date.getDate()),
+    twoDigits(date.getHours()),
+    twoDigits(date.getMinutes()),
+    twoDigits(date.getSeconds()),
+  ].join("")
+}
+
 export function buildStableDeviceUid(phoneNumber: string): string {
-  return `3${phoneNumber}`
+  return `3${phoneNumber}0000`.slice(0, 16)
 }
 
 function utf8Bytes(value: string): Uint8Array {
@@ -392,6 +405,7 @@ export function rsaPkcs1v15Encrypt(plainText: string): string {
 
 function telecomErrorMessage(code: string, fallback: string): string {
   const messages: Record<TelecomKnownErrorCode, string> = {
+    "3001": "手机号或服务密码错误，或登录签名校验未通过",
     "3005": "服务端要求验证码或二次校验，当前版本不能提交验证码",
     "3006": "设备未受信任，请填写有效的设备信任 ID",
     "3007": "登录过于频繁，请稍后再试",
@@ -510,18 +524,21 @@ export async function loginChinaTelecom(
     return { ok: false, code: "EMPTY_PASSWORD", message: "服务密码不能为空" }
   }
 
-  const timestamp = formatTelecomTimestamp()
+  const timestamp = formatTelecomLoginTimestamp()
   const deviceId = trustedDeviceId.trim()
-  const signDeviceId = deviceId ? deviceId.slice(0, 12) : phoneNumber
+  const deviceUid = buildStableDeviceUid(phoneNumber)
+  const signDeviceId = deviceId
+    ? deviceId.slice(0, 12)
+    : deviceUid.slice(0, 12)
   const plainText =
-    `iPhone 14 ${SYSTEM_VERSION}` +
+    LOGIN_DEVICE_DESCRIPTION +
     `${signDeviceId}${phoneNumber}${timestamp}${password}0$$$0.`
   const body = {
     content: {
       fieldData: {
         accountType: "",
         authentication: shiftTelecomText(password),
-        deviceUid: buildStableDeviceUid(phoneNumber),
+        deviceUid,
         isChinatelecom: "0",
         loginAuthCipherAsymmertric: rsaPkcs1v15Encrypt(plainText),
         loginType: "4",
@@ -529,15 +546,18 @@ export async function loginChinaTelecom(
         systemVersion: SYSTEM_VERSION,
         androidId: deviceId ? shiftTelecomText(deviceId) : "",
       },
-      attach: "iPhone",
+      attach: "test",
     },
     headerInfos: {
+      broadAccount: "",
+      broadToken: "",
       code: "userLoginNormal",
       clientType: LOGIN_CLIENT_TYPE,
       timestamp,
       shopId: SHOP_ID,
       source: SOURCE,
       sourcePassword: SOURCE_PASSWORD,
+      token: "",
       userLoginName: shiftTelecomText(phoneNumber),
     },
   }
