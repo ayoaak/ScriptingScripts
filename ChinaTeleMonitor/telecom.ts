@@ -5,8 +5,8 @@ export const TELECOM_QUERY_URL =
 
 const LOGIN_CLIENT_TYPE = "#12.2.0#channel50#iPhone 14 Pro#"
 const QUERY_CLIENT_TYPE = "#12.2.0#channel50#iPhone 14 Pro#"
-const SYSTEM_VERSION = "15.4.0"
-const LOGIN_DEVICE_DESCRIPTION = "iPhone 14 15.4."
+const SYSTEM_VERSION = "13.2.3"
+const LOGIN_DEVICE_DESCRIPTION = "iPhone 14 13.2."
 const SHOP_ID = "20002"
 const SOURCE = "110003"
 const SOURCE_PASSWORD = "Sid98s"
@@ -112,6 +112,7 @@ export const EMPTY_TELECOM_USAGE: TelecomUsage = {
 const CONFIGURATION_KEY = "china-telecom.configuration.v1"
 const SESSION_METADATA_KEY = "china-telecom.session-metadata.v1"
 const DATA_CACHE_KEY = "china-telecom.data-cache.v1"
+const DEVICE_UID_KEY = "china-telecom.device-uid.v1"
 const PASSWORD_KEY = "china-telecom.service-password.v1"
 const TOKEN_KEY = "china-telecom.token.v1"
 const KEYCHAIN_OPTIONS = {
@@ -327,6 +328,24 @@ export function buildStableDeviceUid(phoneNumber: string): string {
   return `3${phoneNumber}0000`.slice(0, 16)
 }
 
+export function getOrCreateStableDeviceUid(): string {
+  const stored = Storage.get<string>(DEVICE_UID_KEY)
+  if (stored && /^\d{16}$/.test(stored)) return stored
+
+  const bytes = Crypto.generateSymmetricKey(256).toUint8Array()
+  if (!bytes || bytes.length < 16) {
+    throw new Error("无法生成稳定设备标识")
+  }
+  let deviceUid = ""
+  for (let index = 0; index < 16; index += 1) {
+    deviceUid += String(bytes[index] % 10)
+  }
+  if (!Storage.set(DEVICE_UID_KEY, deviceUid)) {
+    throw new Error("稳定设备标识保存失败")
+  }
+  return deviceUid
+}
+
 function utf8Bytes(value: string): Uint8Array {
   const bytes = Data.fromRawString(value, "utf-8")?.toUint8Array()
   if (!bytes) throw new Error("无法把登录明文转换为 UTF-8 数据")
@@ -526,7 +545,7 @@ export async function loginChinaTelecom(
 
   const timestamp = formatTelecomLoginTimestamp()
   const deviceId = trustedDeviceId.trim()
-  const deviceUid = buildStableDeviceUid(phoneNumber)
+  const deviceUid = getOrCreateStableDeviceUid()
   const signDeviceId = deviceId
     ? deviceId.slice(0, 12)
     : deviceUid.slice(0, 12)
@@ -539,7 +558,7 @@ export async function loginChinaTelecom(
         accountType: "",
         authentication: shiftTelecomText(password),
         deviceUid,
-        isChinatelecom: "0",
+        isChinatelecom: "",
         loginAuthCipherAsymmertric: rsaPkcs1v15Encrypt(plainText),
         loginType: "4",
         phoneNum: shiftTelecomText(phoneNumber),
@@ -549,15 +568,12 @@ export async function loginChinaTelecom(
       attach: "test",
     },
     headerInfos: {
-      broadAccount: "",
-      broadToken: "",
       code: "userLoginNormal",
       clientType: LOGIN_CLIENT_TYPE,
       timestamp,
       shopId: SHOP_ID,
       source: SOURCE,
       sourcePassword: SOURCE_PASSWORD,
-      token: "",
       userLoginName: shiftTelecomText(phoneNumber),
     },
   }
