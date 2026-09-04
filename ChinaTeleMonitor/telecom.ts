@@ -41,6 +41,11 @@ export interface TelecomConfiguration {
   refreshIntervalMinutes: number
 }
 
+export interface TelecomDataCache {
+  data: Record<string, unknown>
+  updatedAt: string
+}
+
 export interface TelecomLoginInfo extends Record<string, unknown> {
   token: string
   provinceCode?: string
@@ -100,6 +105,158 @@ export const EMPTY_TELECOM_USAGE: TelecomUsage = {
   voiceRemaining: 0,
   voicePercent: 0,
   updatedAt: "",
+}
+
+const CONFIGURATION_KEY = "china-telecom.configuration.v1"
+const SESSION_METADATA_KEY = "china-telecom.session-metadata.v1"
+const DATA_CACHE_KEY = "china-telecom.data-cache.v1"
+const PASSWORD_KEY = "china-telecom.service-password.v1"
+const TOKEN_KEY = "china-telecom.token.v1"
+const KEYCHAIN_OPTIONS = {
+  accessibility: "first_unlock_this_device" as const,
+  synchronizable: false,
+}
+const DEFAULT_CONFIGURATION: TelecomConfiguration = {
+  phoneNumber: "",
+  trustedDeviceId: "",
+  refreshIntervalMinutes: 30,
+}
+const ALLOWED_REFRESH_INTERVALS = new Set([15, 30, 60, 120])
+
+function restoreKeychainValue(key: string, value: string | null): void {
+  if (value === null) {
+    Keychain.remove(key, KEYCHAIN_OPTIONS)
+  } else {
+    Keychain.set(key, value, KEYCHAIN_OPTIONS)
+  }
+}
+
+export function loadTelecomConfiguration(): TelecomConfiguration {
+  const stored = Storage.get<Partial<TelecomConfiguration>>(CONFIGURATION_KEY)
+  if (!stored || typeof stored !== "object") return { ...DEFAULT_CONFIGURATION }
+
+  const refreshIntervalMinutes = Number(stored.refreshIntervalMinutes)
+  return {
+    phoneNumber:
+      typeof stored.phoneNumber === "string" ? stored.phoneNumber.trim() : "",
+    trustedDeviceId:
+      typeof stored.trustedDeviceId === "string"
+        ? stored.trustedDeviceId.trim()
+        : "",
+    refreshIntervalMinutes: ALLOWED_REFRESH_INTERVALS.has(
+      refreshIntervalMinutes,
+    )
+      ? refreshIntervalMinutes
+      : DEFAULT_CONFIGURATION.refreshIntervalMinutes,
+  }
+}
+
+export function getSavedServicePassword(): string {
+  return Keychain.get(PASSWORD_KEY, KEYCHAIN_OPTIONS) ?? ""
+}
+
+export function hasSavedLogin(): boolean {
+  return Boolean(Keychain.get(TOKEN_KEY, KEYCHAIN_OPTIONS))
+}
+
+export function loadTelecomLoginInfo(): TelecomLoginInfo | null {
+  const token = Keychain.get(TOKEN_KEY, KEYCHAIN_OPTIONS)
+  if (!token) return null
+
+  const metadata = Storage.get<{
+    provinceCode?: string
+    cityCode?: string
+  }>(SESSION_METADATA_KEY)
+  return {
+    token,
+    provinceCode:
+      typeof metadata?.provinceCode === "string"
+        ? metadata.provinceCode
+        : undefined,
+    cityCode:
+      typeof metadata?.cityCode === "string" ? metadata.cityCode : undefined,
+  }
+}
+
+export function saveAuthenticatedLogin(
+  configuration: TelecomConfiguration,
+  password: string,
+  loginInfo: TelecomLoginInfo,
+): void {
+  const normalizedConfiguration: TelecomConfiguration = {
+    phoneNumber: configuration.phoneNumber.trim(),
+    trustedDeviceId: configuration.trustedDeviceId?.trim() ?? "",
+    refreshIntervalMinutes: ALLOWED_REFRESH_INTERVALS.has(
+      configuration.refreshIntervalMinutes,
+    )
+      ? configuration.refreshIntervalMinutes
+      : DEFAULT_CONFIGURATION.refreshIntervalMinutes,
+  }
+  const oldPassword = Keychain.get(PASSWORD_KEY, KEYCHAIN_OPTIONS)
+  const oldToken = Keychain.get(TOKEN_KEY, KEYCHAIN_OPTIONS)
+  const oldConfiguration = Storage.get(CONFIGURATION_KEY)
+  const oldMetadata = Storage.get(SESSION_METADATA_KEY)
+
+  try {
+    if (!Keychain.set(PASSWORD_KEY, password, KEYCHAIN_OPTIONS)) {
+      throw new Error("服务密码写入系统钥匙串失败")
+    }
+    if (!Keychain.set(TOKEN_KEY, loginInfo.token, KEYCHAIN_OPTIONS)) {
+      throw new Error("登录 Token 写入系统钥匙串失败")
+    }
+    if (!Storage.set(CONFIGURATION_KEY, normalizedConfiguration)) {
+      throw new Error("普通设置保存失败")
+    }
+    if (
+      !Storage.set(SESSION_METADATA_KEY, {
+        provinceCode: loginInfo.provinceCode ?? "",
+        cityCode: loginInfo.cityCode ?? "",
+      })
+    ) {
+      throw new Error("登录地区信息保存失败")
+    }
+  } catch (error) {
+    restoreKeychainValue(PASSWORD_KEY, oldPassword)
+    restoreKeychainValue(TOKEN_KEY, oldToken)
+    if (oldConfiguration === null) Storage.remove(CONFIGURATION_KEY)
+    else Storage.set(CONFIGURATION_KEY, oldConfiguration)
+    if (oldMetadata === null) Storage.remove(SESSION_METADATA_KEY)
+    else Storage.set(SESSION_METADATA_KEY, oldMetadata)
+    throw error
+  }
+}
+
+export function clearSavedToken(): void {
+  Keychain.remove(TOKEN_KEY, KEYCHAIN_OPTIONS)
+  Storage.remove(SESSION_METADATA_KEY)
+}
+
+export function clearLoginState(): void {
+  Keychain.remove(PASSWORD_KEY, KEYCHAIN_OPTIONS)
+  clearSavedToken()
+}
+
+export function saveTelecomDataCache(data: Record<string, unknown>): string {
+  const updatedAt = new Date().toISOString()
+  const cache: TelecomDataCache = { data, updatedAt }
+  if (!Storage.set(DATA_CACHE_KEY, cache)) {
+    throw new Error("套餐数据缓存失败")
+  }
+  return updatedAt
+}
+
+export function loadTelecomDataCache(): TelecomDataCache | null {
+  const cache = Storage.get<TelecomDataCache>(DATA_CACHE_KEY)
+  if (
+    !cache ||
+    typeof cache !== "object" ||
+    typeof cache.updatedAt !== "string" ||
+    !cache.data ||
+    typeof cache.data !== "object"
+  ) {
+    return null
+  }
+  return cache
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
