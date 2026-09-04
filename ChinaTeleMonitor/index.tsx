@@ -24,6 +24,10 @@ import {
   type TelecomUsage,
 } from "./telecom"
 
+const DEVICE_ID_SITE_PRIMARY =
+  "https://commissions-yields-exception-personally.trycloudflare.com"
+const DEVICE_ID_SITE_BACKUP = "https://telecom.nufe.ccwu.cc"
+
 function maskedPhone(phoneNumber: string): string {
   return /^\d{11}$/.test(phoneNumber)
     ? `${phoneNumber.slice(0, 3)}****${phoneNumber.slice(-4)}`
@@ -145,6 +149,15 @@ function SettingsPage() {
     Widget.reloadAll()
   }
 
+  const handleOpenDeviceIdSite = async (url: string, siteName: string) => {
+    try {
+      const opened = await Safari.openURL(url)
+      if (!opened) setStatus(`${siteName}打开失败，请检查系统浏览器设置`)
+    } catch (error) {
+      setStatus(`${siteName}打开失败：${errorMessage(error)}`)
+    }
+  }
+
   return (
     <NavigationStack>
       <Form
@@ -169,6 +182,30 @@ function SettingsPage() {
             value={trustedDeviceId}
             onChanged={setTrustedDeviceId}
             prompt="可选，设备未受信任时填写"
+          />
+        </Section>
+
+        <Section
+          header={<Text>获取设备ID</Text>}
+          footer={
+            <Text font="caption" foregroundStyle="secondary">
+              先打开任一网站，使用短信登录授权设备并复制设备ID；本脚本请粘贴到上方“设备信任ID”。用于其他部署时设置环境变量 DeviceId='复制的设备id'。两个链接均为外部服务，请确认信任后再输入短信验证码。
+            </Text>
+          }
+        >
+          <Button
+            title="获取设备ID（网站1）"
+            systemImage="safari"
+            action={() =>
+              handleOpenDeviceIdSite(DEVICE_ID_SITE_PRIMARY, "网站1")
+            }
+          />
+          <Button
+            title="获取设备ID（网站2）"
+            systemImage="link"
+            action={() =>
+              handleOpenDeviceIdSite(DEVICE_ID_SITE_BACKUP, "网站2")
+            }
           />
         </Section>
 
