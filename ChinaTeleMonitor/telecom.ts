@@ -15,6 +15,7 @@ const COMMON_HEADERS = {
   "Content-Type": "application/json; charset=UTF-8",
   Connection: "Keep-Alive",
   "Accept-Encoding": "gzip",
+  "user-agent": "P216010901",
 }
 
 const RSA_MODULUS = BigInt(
@@ -330,14 +331,14 @@ export function buildStableDeviceUid(phoneNumber: string): string {
 
 export function getOrCreateStableDeviceUid(): string {
   const stored = Storage.get<string>(DEVICE_UID_KEY)
-  if (stored && /^\d{16}$/.test(stored)) return stored
+  if (stored && /^[1-9]\d{15}$/.test(stored)) return stored
 
   const bytes = Crypto.generateSymmetricKey(256).toUint8Array()
   if (!bytes || bytes.length < 16) {
     throw new Error("无法生成稳定设备标识")
   }
-  let deviceUid = ""
-  for (let index = 0; index < 16; index += 1) {
+  let deviceUid = String((bytes[0] % 9) + 1)
+  for (let index = 1; index < 16; index += 1) {
     deviceUid += String(bytes[index] % 10)
   }
   if (!Storage.set(DEVICE_UID_KEY, deviceUid)) {
