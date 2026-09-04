@@ -13,16 +13,14 @@ import {
 } from "scripting"
 import {
   clearLoginState,
-  clearSavedToken,
   getSavedServicePassword,
   hasSavedLogin,
   loadTelecomConfiguration,
   loadTelecomDataCache,
-  loadTelecomLoginInfo,
   loginChinaTelecom,
-  queryImportantData,
+  refreshTelecomData,
   saveAuthenticatedLogin,
-  saveTelecomDataCache,
+  type TelecomUsage,
 } from "./telecom"
 
 function maskedPhone(phoneNumber: string): string {
@@ -41,6 +39,10 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
+function displayNumber(value: number, digits = 2): string {
+  return value.toFixed(digits).replace(/\.00$/, "")
+}
+
 function SettingsPage() {
   const initialConfiguration = loadTelecomConfiguration()
   const initialCache = loadTelecomDataCache()
@@ -55,6 +57,9 @@ function SettingsPage() {
   const [loginSaved, setLoginSaved] = useState(hasSavedLogin())
   const [lastRefreshAt, setLastRefreshAt] = useState(
     initialCache?.updatedAt ?? "",
+  )
+  const [usage, setUsage] = useState<TelecomUsage | null>(
+    initialCache?.data ?? null,
   )
   const [status, setStatus] = useState(
     hasSavedLogin() ? "登录信息已安全保存" : "请填写账号并登录",
@@ -102,32 +107,26 @@ function SettingsPage() {
 
   const handleManualRefresh = async () => {
     if (busy) return
-    const configuration = loadTelecomConfiguration()
-    const loginInfo = loadTelecomLoginInfo()
-    if (!configuration.phoneNumber || !loginInfo) {
-      setStatus("没有有效登录状态，请先登录并保存")
-      return
-    }
-
     setBusy(true)
     setStatus("正在刷新套餐数据…")
     try {
-      const result = await queryImportantData(
-        configuration.phoneNumber,
-        loginInfo,
-      )
+      const result = await refreshTelecomData()
       if (!result.ok) {
-        if (result.code === "X201") {
-          clearSavedToken()
-          setLoginSaved(false)
+        setLoginSaved(hasSavedLogin())
+        if (result.cachedData) {
+          setUsage(result.cachedData)
+          setLastRefreshAt(result.cachedAt ?? result.cachedData.updatedAt)
         }
-        setStatus(`刷新失败（${result.code}）：${result.message}`)
+        setStatus(
+          `刷新失败（${result.code}）：${result.message}${result.stale ? "，继续显示上次数据" : ""}`,
+        )
         return
       }
 
-      const updatedAt = saveTelecomDataCache(result.data)
-      setLastRefreshAt(updatedAt)
-      setStatus("套餐数据刷新成功")
+      setUsage(result.data)
+      setLastRefreshAt(result.updatedAt)
+      setLoginSaved(true)
+      setStatus(result.relogged ? "重新登录并刷新成功" : "套餐数据刷新成功")
     } catch (error) {
       setStatus(`刷新失败：${errorMessage(error)}`)
     } finally {
@@ -208,6 +207,20 @@ function SettingsPage() {
           <Text>最近成功刷新：{displayTime(lastRefreshAt)}</Text>
           <Text>密码和Token仅保存在iOS钥匙串，不写入源码或普通缓存</Text>
         </Section>
+
+        {usage ? (
+          <Section header={<Text>套餐数据</Text>}>
+            <Text>余额：{displayNumber(usage.balance)} 元</Text>
+            <Text>本月消费：{displayNumber(usage.currentMonthCost)} 元</Text>
+            <Text>
+              剩余流量：{displayNumber(usage.flowRemaining)} GB（{displayNumber(usage.flowPercent, 1)}%）
+            </Text>
+            <Text>
+              剩余语音：{displayNumber(usage.voiceRemaining, 0)} 分钟（{displayNumber(usage.voicePercent, 1)}%）
+            </Text>
+            <Text>积分：{displayNumber(usage.points, 0)}</Text>
+          </Section>
+        ) : null}
       </Form>
     </NavigationStack>
   )

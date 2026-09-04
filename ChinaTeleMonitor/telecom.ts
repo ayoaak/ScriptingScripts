@@ -26,6 +26,7 @@ const RSA_BLOCK_BYTES = 128
 
 export interface TelecomUsage {
   balance: number
+  currentMonthCost: number
   flowTotal: number
   flowUsed: number
   flowRemaining: number
@@ -34,6 +35,7 @@ export interface TelecomUsage {
   voiceUsed: number
   voiceRemaining: number
   voicePercent: number
+  points: number
   updatedAt: string
 }
 
@@ -44,7 +46,7 @@ export interface TelecomConfiguration {
 }
 
 export interface TelecomDataCache {
-  data: Record<string, unknown>
+  data: TelecomUsage
   updatedAt: string
 }
 
@@ -78,12 +80,28 @@ export interface TelecomLoginSuccess {
 
 export interface TelecomQuerySuccess {
   ok: true
-  data: Record<string, unknown>
+  data: TelecomUsage
   payload: Record<string, unknown>
+}
+
+export interface TelecomRefreshSuccess {
+  ok: true
+  data: TelecomUsage
+  updatedAt: string
+  relogged: boolean
+}
+
+export interface TelecomRefreshFailure extends TelecomFailure {
+  cachedData?: TelecomUsage
+  cachedAt?: string
+  stale: boolean
 }
 
 export type TelecomLoginResult = TelecomLoginSuccess | TelecomFailure
 export type TelecomQueryResult = TelecomQuerySuccess | TelecomFailure
+export type TelecomRefreshResult =
+  | TelecomRefreshSuccess
+  | TelecomRefreshFailure
 
 export interface NetworkProbeResult {
   name: string
@@ -99,6 +117,7 @@ export interface NetworkProbeResult {
 
 export const EMPTY_TELECOM_USAGE: TelecomUsage = {
   balance: 0,
+  currentMonthCost: 0,
   flowTotal: 0,
   flowUsed: 0,
   flowRemaining: 0,
@@ -107,6 +126,7 @@ export const EMPTY_TELECOM_USAGE: TelecomUsage = {
   voiceUsed: 0,
   voiceRemaining: 0,
   voicePercent: 0,
+  points: 0,
   updatedAt: "",
 }
 
@@ -114,8 +134,10 @@ const CONFIGURATION_KEY = "china-telecom.configuration.v1"
 const SESSION_METADATA_KEY = "china-telecom.session-metadata.v1"
 const DATA_CACHE_KEY = "china-telecom.data-cache.v1"
 const DEVICE_UID_KEY = "china-telecom.device-uid.v1"
+const LOGIN_ATTEMPT_KEY = "china-telecom.login-attempt.v1"
 const PASSWORD_KEY = "china-telecom.service-password.v1"
 const TOKEN_KEY = "china-telecom.token.v1"
+const LOGIN_COOLDOWN_MS = 5 * 60 * 1000
 const KEYCHAIN_OPTIONS = {
   accessibility: "first_unlock_this_device" as const,
   synchronizable: false,
@@ -240,9 +262,12 @@ export function clearLoginState(): void {
   clearSavedToken()
 }
 
-export function saveTelecomDataCache(data: Record<string, unknown>): string {
-  const updatedAt = new Date().toISOString()
-  const cache: TelecomDataCache = { data, updatedAt }
+export function saveTelecomDataCache(data: TelecomUsage): string {
+  const updatedAt = data.updatedAt || new Date().toISOString()
+  const cache: TelecomDataCache = {
+    data: { ...data, updatedAt },
+    updatedAt,
+  }
   if (!Storage.set(DATA_CACHE_KEY, cache)) {
     throw new Error("套餐数据缓存失败")
   }
@@ -250,17 +275,24 @@ export function saveTelecomDataCache(data: Record<string, unknown>): string {
 }
 
 export function loadTelecomDataCache(): TelecomDataCache | null {
-  const cache = Storage.get<TelecomDataCache>(DATA_CACHE_KEY)
+  const cache = Storage.get<{
+    data?: unknown
+    updatedAt?: unknown
+  }>(DATA_CACHE_KEY)
   if (
     !cache ||
     typeof cache !== "object" ||
-    typeof cache.updatedAt !== "string" ||
-    !cache.data ||
-    typeof cache.data !== "object"
+    typeof cache.updatedAt !== "string"
   ) {
     return null
   }
-  return cache
+  const storedData = asRecord(cache.data)
+  if (!storedData) return null
+
+  const normalized = isTelecomUsage(storedData)
+    ? ({ ...storedData, updatedAt: cache.updatedAt } as TelecomUsage)
+    : parseTelecomUsage(storedData, cache.updatedAt)
+  return { data: normalized, updatedAt: cache.updatedAt }
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -278,6 +310,91 @@ function childRecord(
 
 function stringValue(value: unknown): string {
   return typeof value === "string" ? value : ""
+}
+
+function numberValue(value: unknown): number {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0
+  if (typeof value !== "string") return 0
+  const match = value.replace(/,/g, "").match(/-?\d+(?:\.\d+)?/)
+  if (!match) return 0
+  const parsed = Number(match[0])
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function rounded(value: number, digits = 2): number {
+  const factor = 10 ** digits
+  return Math.round((value + Number.EPSILON) * factor) / factor
+}
+
+function remainingPercent(remaining: number, total: number): number {
+  if (total <= 0) return 0
+  return rounded(Math.max(0, Math.min(100, (remaining / total) * 100)), 1)
+}
+
+function isTelecomUsage(value: Record<string, unknown>): boolean {
+  const numericKeys: Array<keyof TelecomUsage> = [
+    "balance",
+    "currentMonthCost",
+    "flowTotal",
+    "flowUsed",
+    "flowRemaining",
+    "flowPercent",
+    "voiceTotal",
+    "voiceUsed",
+    "voiceRemaining",
+    "voicePercent",
+    "points",
+  ]
+  return (
+    numericKeys.every((key) => typeof value[key] === "number") &&
+    typeof value.updatedAt === "string"
+  )
+}
+
+export function parseTelecomUsage(
+  data: Record<string, unknown>,
+  updatedAt = new Date().toISOString(),
+): TelecomUsage {
+  const flowInfo = childRecord(data, "flowInfo")
+  const totalAmount = childRecord(flowInfo, "totalAmount")
+  const flowUsedKb = numberValue(totalAmount?.used)
+  const flowRemainingKb = numberValue(totalAmount?.balance)
+  const flowTotalKb = flowUsedKb + flowRemainingKb
+
+  const voiceInfo = childRecord(data, "voiceInfo")
+  const voiceDataInfo = childRecord(voiceInfo, "voiceDataInfo")
+  const voiceUsed = numberValue(voiceDataInfo?.used)
+  const voiceRemaining = numberValue(voiceDataInfo?.balance)
+  const reportedVoiceTotal = numberValue(voiceDataInfo?.total)
+  const voiceTotal = reportedVoiceTotal || voiceUsed + voiceRemaining
+
+  const balanceInfo = childRecord(data, "balanceInfo")
+  const balanceData = childRecord(balanceInfo, "indexBalanceDataInfo")
+  const availableBalance = numberValue(balanceData?.balance)
+  const arrear = numberValue(balanceData?.arrear)
+  const balance = availableBalance === 0 && arrear > 0 ? -arrear : availableBalance
+  const phoneBillRegion = childRecord(balanceInfo, "phoneBillRegion")
+
+  const integralInfo = childRecord(data, "integralInfo")
+  const kilobytesPerGigabyte = 1024 * 1024
+  const flowUsed = rounded(flowUsedKb / kilobytesPerGigabyte)
+  const flowRemaining = rounded(flowRemainingKb / kilobytesPerGigabyte)
+  const flowTotal = rounded(flowTotalKb / kilobytesPerGigabyte)
+
+  return {
+    balance: rounded(balance),
+    currentMonthCost: rounded(numberValue(phoneBillRegion?.subTitleHh)),
+    flowTotal,
+    flowUsed,
+    flowRemaining,
+    flowPercent: remainingPercent(flowRemainingKb, flowTotalKb),
+    voiceTotal: rounded(voiceTotal),
+    voiceUsed: rounded(voiceUsed),
+    voiceRemaining: rounded(voiceRemaining),
+    voicePercent: remainingPercent(voiceRemaining, voiceTotal),
+    points: Math.trunc(numberValue(integralInfo?.integral)),
+    updatedAt,
+  }
 }
 
 function errorDetails(error: unknown): { name: string; message: string } {
@@ -640,9 +757,12 @@ export async function queryImportantData(
     const code =
       stringValue(responseData?.resultCode) || stringValue(headerInfos?.code)
     if (code === "X201") return responseError(payload, "Token 已失效")
+    if (code && code !== "0000") {
+      return responseError(payload, "套餐查询失败")
+    }
     const data = childRecord(responseData, "data")
     return data
-      ? { ok: true, data, payload }
+      ? { ok: true, data: parseTelecomUsage(data), payload }
       : responseError(payload, "套餐查询未返回数据")
   } catch (error) {
     const details = errorDetails(error)
@@ -652,4 +772,96 @@ export async function queryImportantData(
       message: details.message,
     }
   }
+}
+
+function refreshFailure(
+  failure: TelecomFailure,
+  cache: TelecomDataCache | null,
+): TelecomRefreshFailure {
+  return {
+    ...failure,
+    cachedData: cache?.data,
+    cachedAt: cache?.updatedAt,
+    stale: Boolean(cache),
+  }
+}
+
+function loginCooldownFailure(cache: TelecomDataCache | null): TelecomRefreshFailure {
+  const attemptedAt = Storage.get<number>(LOGIN_ATTEMPT_KEY) ?? 0
+  const remainingMs = LOGIN_COOLDOWN_MS - (Date.now() - attemptedAt)
+  const remainingMinutes = Math.max(1, Math.ceil(remainingMs / 60_000))
+  return refreshFailure(
+    {
+      ok: false,
+      code: "LOGIN_COOLDOWN",
+      message: `为避免账号受限，请在 ${remainingMinutes} 分钟后再尝试自动登录`,
+    },
+    cache,
+  )
+}
+
+export async function refreshTelecomData(): Promise<TelecomRefreshResult> {
+  const cache = loadTelecomDataCache()
+  const configuration = loadTelecomConfiguration()
+  const phoneNumber = configuration.phoneNumber
+  if (!phoneNumber) {
+    return refreshFailure(
+      { ok: false, code: "MISSING_PHONE", message: "请先填写手机号" },
+      cache,
+    )
+  }
+
+  let loginInfo = loadTelecomLoginInfo()
+  let relogged = false
+
+  if (loginInfo) {
+    const query = await queryImportantData(phoneNumber, loginInfo)
+    if (query.ok) {
+      const updatedAt = saveTelecomDataCache(query.data)
+      return { ok: true, data: query.data, updatedAt, relogged }
+    }
+    if (query.code !== "X201") return refreshFailure(query, cache)
+    clearSavedToken()
+    loginInfo = null
+  }
+
+  const password = getSavedServicePassword()
+  if (!password) {
+    return refreshFailure(
+      {
+        ok: false,
+        code: "MISSING_CREDENTIALS",
+        message: "没有可用于重新登录的服务密码，请在设置页登录并保存",
+      },
+      cache,
+    )
+  }
+
+  const attemptedAt = Storage.get<number>(LOGIN_ATTEMPT_KEY) ?? 0
+  if (Date.now() - attemptedAt < LOGIN_COOLDOWN_MS) {
+    return loginCooldownFailure(cache)
+  }
+  if (!Storage.set(LOGIN_ATTEMPT_KEY, Date.now())) {
+    return refreshFailure(
+      { ok: false, code: "STORAGE_ERROR", message: "登录冷却状态保存失败" },
+      cache,
+    )
+  }
+
+  const login = await loginChinaTelecom(
+    phoneNumber,
+    password,
+    configuration.trustedDeviceId ?? "",
+  )
+  if (!login.ok) return refreshFailure(login, cache)
+
+  saveAuthenticatedLogin(configuration, password, login.loginInfo)
+  loginInfo = login.loginInfo
+  relogged = true
+
+  const retryQuery = await queryImportantData(phoneNumber, loginInfo)
+  if (!retryQuery.ok) return refreshFailure(retryQuery, cache)
+
+  const updatedAt = saveTelecomDataCache(retryQuery.data)
+  return { ok: true, data: retryQuery.data, updatedAt, relogged }
 }
