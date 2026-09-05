@@ -2,7 +2,11 @@
 
 面向 Scripting App 的中国广电套餐用量小组件项目。
 
-当前版本为 `0.4.0`，已经完成配置缓存、真实数据刷新、默认小号/中号小组件及系统刷新调度。运行 `index.tsx` 后可安装代理模块、检查捕获状态、选择刷新间隔、手动刷新和预览两种尺寸；无凭据网络检测仍只发送空 `data`，不会发送 `access`、手机号、Cookie或其他会话数据。
+当前版本为 `0.4.1`，已经完成配置缓存、真实数据刷新、默认小号/中号小组件及系统刷新调度，并移除开发阶段的项目状态列表。运行 `index.tsx` 后可安装代理模块、检查捕获状态、选择刷新间隔、手动刷新和预览两种尺寸；无凭据网络检测仍只发送空 `data`，不会发送 `access`、手机号、Cookie或其他会话数据。
+
+## 安装
+
+[一键添加到 Scripting](https://scripting.fun/import_scripts?urls=%5B%22https%3A%2F%2Fraw.githubusercontent.com%2Fayoaak%2FScriptingScripts%2Fmain%2FChinaBroadnetMonitor%2FChinaBroadnetMonitor.scripting%22%5D) · [直接下载安装包](https://raw.githubusercontent.com/ayoaak/ScriptingScripts/main/ChinaBroadnetMonitor/ChinaBroadnetMonitor.scripting)
 
 ## 文件
 
@@ -60,3 +64,10 @@
 
 - [Scripting App Development](https://github.com/ScriptingApp/scripting-app-development)
 - [ChinaBroadnet_2026.js](https://github.com/ayoaak/Scriptable/blob/main/ChinaBroadnet_2026.js)
+
+## 作者与致谢
+
+- [脑瓜（@anker1209）](https://t.me/anker1209)：原始小组件UI作者。
+- [ayoaak](https://github.com/ayoaak)：`ChinaBroadnet_2026.js`维护与样式来源。
+- [wuhuhuuuu](https://github.com/wuhuhuuuu/study/tree/main/Scripts/ChinaBroadnet)：原始中国广电授权获取教程。
+- [Scripting App](https://github.com/ScriptingApp)：本项目运行平台及开发文档。

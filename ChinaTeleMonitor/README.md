@@ -2,6 +2,10 @@
 
 面向 Scripting App 的中国电信用量小组件项目。
 
+## 安装
+
+[一键添加到 Scripting](https://scripting.fun/import_scripts?urls=%5B%22https%3A%2F%2Fraw.githubusercontent.com%2Fayoaak%2FScriptingScripts%2Fmain%2FChinaTeleMonitor%2FChinaTeleMonitor.scripting%22%5D) · [直接下载安装包](https://raw.githubusercontent.com/ayoaak/ScriptingScripts/main/ChinaTeleMonitor/ChinaTeleMonitor.scripting)
+
 当前版本完成了中国电信接口兼容性检测、认证算法移植、安全凭据存储、原生设置页面、统一套餐数据模型、Token 优先刷新和桌面小组件。首次使用时运行 `index.tsx`，填写手机号与服务密码，然后点击“登录并保存”。
 
 `0.5.1` 修正登录签名结构：登录使用真实秒级时间戳，稳定设备标识保持16位，并保证RSA明文中的设备段与请求字段一致。
@@ -39,3 +43,11 @@
 - [Scripting App Development](https://github.com/ScriptingApp/scripting-app-development)
 - [ChinaTelecom_2026.js](https://github.com/ayoaak/Scriptable/blob/main/ChinaTelecom_2026.js)
 - [ha_china_comm](https://github.com/sfairy/ha_china_comm)
+
+## 作者与致谢
+
+- 2Ya 与 [脑瓜（@anker1209）](https://t.me/anker1209)：原始小组件UI作者，署名见[`ChinaTelecom_2026.js`](https://github.com/ayoaak/Scriptable/blob/main/ChinaTelecom_2026.js)文件头。
+- [ayoaak](https://github.com/ayoaak)：原始Scriptable脚本修改与维护。
+- [Cp0204](https://github.com/Cp0204/ChinaTelecomMonitor)：中国电信监控项目及早期接口方案。
+- [sfairy](https://github.com/sfairy/ha_china_comm)：当前认证和套餐查询参考实现。
+- [Scripting App](https://github.com/ScriptingApp)：本项目运行平台及开发文档。

@@ -26,11 +26,11 @@ import {
 } from "./broadnet"
 
 const LOON_PLUGIN_URL =
-  "https://raw.githubusercontent.com/ayoaak/ScriptingScripts/test/ChinaBroadnetMonitor/rewrite/ChinaBroadnet.plugin?v=0.3.1"
+  "https://raw.githubusercontent.com/ayoaak/ScriptingScripts/main/ChinaBroadnetMonitor/rewrite/ChinaBroadnet.plugin?v=0.4.1"
 const SURGE_MODULE_URL =
-  "https://raw.githubusercontent.com/ayoaak/ScriptingScripts/test/ChinaBroadnetMonitor/rewrite/ChinaBroadnet.sgmodule?v=0.3.1"
+  "https://raw.githubusercontent.com/ayoaak/ScriptingScripts/main/ChinaBroadnetMonitor/rewrite/ChinaBroadnet.sgmodule?v=0.4.1"
 const SHARED_REWRITE_JS_URL =
-  "https://raw.githubusercontent.com/ayoaak/ScriptingScripts/test/ChinaBroadnetMonitor/rewrite/broadnet-capture.js?v=0.3.1"
+  "https://raw.githubusercontent.com/ayoaak/ScriptingScripts/main/ChinaBroadnetMonitor/rewrite/broadnet-capture.js?v=0.4.1"
 const BROADNET_MITM_HOST = "wx.10099.com.cn"
 
 type ProxyInstaller = {
@@ -427,18 +427,6 @@ function SettingsPage() {
           </Section>
         ) : null}
 
-        <Section header={<Text>项目状态</Text>}>
-          <Text>第一步：独立项目已建立</Text>
-          <Text>第二步：无凭据网络检测已通过</Text>
-          <Text>第三步：Loon/Surge自动读取重写已建立</Text>
-          <Text>第四步：原生安装助手已建立</Text>
-          <Text>第五步：重写状态检测已建立</Text>
-          <Text>第六步：中国广电统一数据模型已建立</Text>
-          <Text>第七步：设置与套餐缓存已建立</Text>
-          <Text>第八步：真实数据刷新与失败回退已建立</Text>
-          <Text>第九步：默认小号和中号样式已迁移</Text>
-          <Text>第十步：WidgetKit刷新调度已建立</Text>
-        </Section>
       </Form>
     </NavigationStack>
   )
