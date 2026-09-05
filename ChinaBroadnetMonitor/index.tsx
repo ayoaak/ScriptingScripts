@@ -3,17 +3,26 @@ import {
   Form,
   Navigation,
   NavigationStack,
+  Picker,
   Script,
   Section,
   Text,
   useState,
+  Widget,
 } from "scripting"
 import {
   BROADNET_QUERY_URL,
   checkBroadnetRewriteStatus,
+  clearBroadnetDataCache,
+  loadBroadnetConfiguration,
+  loadBroadnetDataCache,
   probeBroadnetEndpoint,
+  refreshBroadnetData,
+  saveBroadnetConfiguration,
+  saveBroadnetDataCache,
   type BroadnetNetworkProbeResult,
   type BroadnetRewriteStatusResult,
+  type BroadnetUsage,
 } from "./broadnet"
 
 const LOON_PLUGIN_URL =
@@ -47,6 +56,8 @@ const PROXY_INSTALLERS: ProxyInstaller[] = [
 ]
 
 function SettingsPage() {
+  const initialConfiguration = loadBroadnetConfiguration()
+  const initialCache = loadBroadnetDataCache()
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState("尚未检测")
   const [result, setResult] = useState<BroadnetNetworkProbeResult | null>(null)
@@ -54,6 +65,18 @@ function SettingsPage() {
   const [rewriteBusy, setRewriteBusy] = useState(false)
   const [rewriteResult, setRewriteResult] =
     useState<BroadnetRewriteStatusResult | null>(null)
+  const [refreshIntervalMinutes, setRefreshIntervalMinutes] = useState(
+    initialConfiguration.refreshIntervalMinutes,
+  )
+  const [usage, setUsage] = useState<BroadnetUsage | null>(
+    initialCache?.data ?? null,
+  )
+  const [lastRefreshAt, setLastRefreshAt] = useState(
+    initialCache?.updatedAt ?? "",
+  )
+  const [refreshStatus, setRefreshStatus] = useState(
+    initialCache ? "正在显示上次成功数据" : "尚未获取套餐数据",
+  )
 
   const copyPublicText = async (value: string, successMessage: string) => {
     await Pasteboard.setString(value)
@@ -115,14 +138,77 @@ function SettingsPage() {
     setRewriteBusy(true)
     setRewriteResult(null)
     try {
-      setRewriteResult(await checkBroadnetRewriteStatus())
+      const checked = await checkBroadnetRewriteStatus()
+      setRewriteResult(checked)
+      if (checked.usage) {
+        const updatedAt = saveBroadnetDataCache(checked.usage)
+        setUsage(checked.usage)
+        setLastRefreshAt(updatedAt)
+        setRefreshStatus("自动读取正常，套餐缓存已更新")
+        Widget.reloadAll()
+      }
     } finally {
       setRewriteBusy(false)
     }
   }
 
+  const handleSaveRefreshSettings = () => {
+    try {
+      saveBroadnetConfiguration({ refreshIntervalMinutes })
+      setRefreshStatus(`刷新间隔已保存为${refreshIntervalMinutes}分钟`)
+      Widget.reloadAll()
+    } catch (error) {
+      setRefreshStatus(
+        `保存失败：${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+  }
+
+  const handleManualRefresh = async () => {
+    if (busy || rewriteBusy) return
+    setBusy(true)
+    setRefreshStatus("正在通过重写读取套餐数据…")
+    try {
+      const refreshed = await refreshBroadnetData()
+      if (refreshed.ok) {
+        setUsage(refreshed.data)
+        setLastRefreshAt(refreshed.updatedAt)
+        setRefreshStatus("套餐数据刷新成功")
+        Widget.reloadAll()
+        return
+      }
+      if (refreshed.cachedData) {
+        setUsage(refreshed.cachedData)
+        setLastRefreshAt(refreshed.cachedAt ?? refreshed.cachedData.updatedAt)
+      }
+      setRefreshStatus(
+        `刷新失败：${refreshed.message}${refreshed.stale ? "，继续显示上次数据" : ""}`,
+      )
+    } catch (error) {
+      setRefreshStatus(
+        `刷新失败：${error instanceof Error ? error.message : String(error)}`,
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleClearCache = () => {
+    clearBroadnetDataCache()
+    setUsage(null)
+    setLastRefreshAt("")
+    setRefreshStatus("套餐缓存已清除；代理软件中的授权信息未受影响")
+    Widget.reloadAll()
+  }
+
   const displayNumber = (value: number | null, unit: string) =>
     value === null ? "--" : `${value}${unit}`
+
+  const displayTime = (value: string) => {
+    if (!value) return "尚未刷新"
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? "尚未刷新" : date.toLocaleString()
+  }
 
   const rewriteStateTitle = (
     state: BroadnetRewriteStatusResult["state"],
@@ -231,37 +317,86 @@ function SettingsPage() {
           </Section>
         ) : null}
 
-        {rewriteResult?.usage ? (
+        <Section
+          header={<Text>刷新与小组件</Text>}
+          footer={
+            <Text font="caption" foregroundStyle="secondary">
+              小组件先读取最后一次成功缓存，到期后再通过代理重写请求新数据；失败不会清空旧数据。实际后台刷新时间由iOS WidgetKit调度。
+            </Text>
+          }
+        >
+          <Picker
+            title="刷新间隔"
+            value={refreshIntervalMinutes}
+            onChanged={setRefreshIntervalMinutes}
+            pickerStyle="menu"
+          >
+            <Text tag={15}>15分钟</Text>
+            <Text tag={30}>30分钟</Text>
+            <Text tag={60}>1小时</Text>
+            <Text tag={120}>2小时</Text>
+          </Picker>
+          <Button
+            title="保存刷新设置"
+            systemImage="checkmark.circle"
+            action={handleSaveRefreshSettings}
+          />
+          <Button
+            title={busy ? "刷新中…" : "手动刷新套餐数据"}
+            systemImage="arrow.clockwise"
+            action={handleManualRefresh}
+          />
+          <Button
+            title="预览小号小组件"
+            systemImage="rectangle"
+            action={() => Widget.preview({ family: "systemSmall" })}
+          />
+          <Button
+            title="预览中号小组件"
+            systemImage="rectangle.split.3x1"
+            action={() => Widget.preview({ family: "systemMedium" })}
+          />
+          <Button
+            title="清除套餐缓存"
+            systemImage="trash"
+            role="destructive"
+            action={handleClearCache}
+          />
+          <Text>刷新状态：{refreshStatus}</Text>
+          <Text>最近成功刷新：{displayTime(lastRefreshAt)}</Text>
+        </Section>
+
+        {usage ? (
           <Section header={<Text>统一数据</Text>}>
             <Text>
-              余额：{displayNumber(rewriteResult.usage.balance, "元")}
+              余额：{displayNumber(usage.balance, "元")}
             </Text>
             <Text>
-              套餐流量：{displayNumber(rewriteResult.usage.flowTotalGB, "GB")}
+              套餐流量：{displayNumber(usage.flowTotalGB, "GB")}
             </Text>
             <Text>
-              已用流量：{displayNumber(rewriteResult.usage.flowUsedGB, "GB")}
+              已用流量：{displayNumber(usage.flowUsedGB, "GB")}
             </Text>
             <Text>
-              剩余流量：{displayNumber(rewriteResult.usage.flowRemainingGB, "GB")}
+              剩余流量：{displayNumber(usage.flowRemainingGB, "GB")}
             </Text>
             <Text>
-              流量剩余比例：{displayNumber(rewriteResult.usage.flowRemainingPercent, "%")}
+              流量剩余比例：{displayNumber(usage.flowRemainingPercent, "%")}
             </Text>
             <Text>
-              语音总量：{displayNumber(rewriteResult.usage.voiceTotalMinutes, "分钟")}
+              语音总量：{displayNumber(usage.voiceTotalMinutes, "分钟")}
             </Text>
             <Text>
-              已用语音：{displayNumber(rewriteResult.usage.voiceUsedMinutes, "分钟")}
+              已用语音：{displayNumber(usage.voiceUsedMinutes, "分钟")}
             </Text>
             <Text>
-              剩余语音：{displayNumber(rewriteResult.usage.voiceRemainingMinutes, "分钟")}
+              剩余语音：{displayNumber(usage.voiceRemainingMinutes, "分钟")}
             </Text>
             <Text>
-              语音剩余比例：{displayNumber(rewriteResult.usage.voiceRemainingPercent, "%")}
+              语音剩余比例：{displayNumber(usage.voiceRemainingPercent, "%")}
             </Text>
             <Text>
-              更新时间：{new Date(rewriteResult.usage.updatedAt).toLocaleString()}
+              更新时间：{displayTime(lastRefreshAt)}
             </Text>
           </Section>
         ) : null}
@@ -299,7 +434,10 @@ function SettingsPage() {
           <Text>第四步：原生安装助手已建立</Text>
           <Text>第五步：重写状态检测已建立</Text>
           <Text>第六步：中国广电统一数据模型已建立</Text>
-          <Text>配置缓存和小组件真实刷新将在后续步骤加入</Text>
+          <Text>第七步：设置与套餐缓存已建立</Text>
+          <Text>第八步：真实数据刷新与失败回退已建立</Text>
+          <Text>第九步：默认小号和中号样式已迁移</Text>
+          <Text>第十步：WidgetKit刷新调度已建立</Text>
         </Section>
       </Form>
     </NavigationStack>

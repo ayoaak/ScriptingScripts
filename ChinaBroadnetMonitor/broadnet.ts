@@ -24,6 +24,50 @@ export interface BroadnetUsage {
   updatedAt: string
 }
 
+export interface BroadnetConfiguration {
+  refreshIntervalMinutes: number
+}
+
+export interface BroadnetDataCache {
+  data: BroadnetUsage
+  updatedAt: string
+}
+
+export type BroadnetRefreshResult =
+  | {
+      ok: true
+      data: BroadnetUsage
+      updatedAt: string
+    }
+  | {
+      ok: false
+      state: Exclude<BroadnetRewriteState, "ready">
+      message: string
+      cachedData?: BroadnetUsage
+      cachedAt?: string
+      stale: boolean
+    }
+
+export const EMPTY_BROADNET_USAGE: BroadnetUsage = {
+  balance: null,
+  flowTotalGB: null,
+  flowUsedGB: null,
+  flowRemainingGB: null,
+  flowRemainingPercent: null,
+  voiceTotalMinutes: null,
+  voiceUsedMinutes: null,
+  voiceRemainingMinutes: null,
+  voiceRemainingPercent: null,
+  updatedAt: "",
+}
+
+const CONFIGURATION_KEY = "china-broadnet.configuration.v1"
+const DATA_CACHE_KEY = "china-broadnet.data-cache.v1"
+const DEFAULT_CONFIGURATION: BroadnetConfiguration = {
+  refreshIntervalMinutes: 30,
+}
+const ALLOWED_REFRESH_INTERVALS = new Set([15, 30, 60, 120])
+
 export interface BroadnetRewriteStatusResult {
   state: BroadnetRewriteState
   message: string
@@ -74,6 +118,79 @@ function remainingPercent(remaining: number | null, total: number | null) {
 function usedAmount(total: number | null, remaining: number | null) {
   if (total === null || remaining === null) return null
   return rounded(Math.max(0, total - remaining))
+}
+
+function isBroadnetUsage(value: Record<string, unknown>): boolean {
+  const nullableNumberKeys = [
+    "balance",
+    "flowTotalGB",
+    "flowUsedGB",
+    "flowRemainingGB",
+    "flowRemainingPercent",
+    "voiceTotalMinutes",
+    "voiceUsedMinutes",
+    "voiceRemainingMinutes",
+    "voiceRemainingPercent",
+  ]
+  return (
+    typeof value.updatedAt === "string" &&
+    nullableNumberKeys.every(
+      (key) => value[key] === null || typeof value[key] === "number",
+    )
+  )
+}
+
+export function loadBroadnetConfiguration(): BroadnetConfiguration {
+  const stored = Storage.get<Partial<BroadnetConfiguration>>(CONFIGURATION_KEY)
+  const interval = Number(stored?.refreshIntervalMinutes)
+  return {
+    refreshIntervalMinutes: ALLOWED_REFRESH_INTERVALS.has(interval)
+      ? interval
+      : DEFAULT_CONFIGURATION.refreshIntervalMinutes,
+  }
+}
+
+export function saveBroadnetConfiguration(
+  configuration: BroadnetConfiguration,
+): void {
+  const interval = Number(configuration.refreshIntervalMinutes)
+  const normalized = {
+    refreshIntervalMinutes: ALLOWED_REFRESH_INTERVALS.has(interval)
+      ? interval
+      : DEFAULT_CONFIGURATION.refreshIntervalMinutes,
+  }
+  if (!Storage.set(CONFIGURATION_KEY, normalized)) {
+    throw new Error("刷新设置保存失败")
+  }
+}
+
+export function saveBroadnetDataCache(data: BroadnetUsage): string {
+  const updatedAt = data.updatedAt || new Date().toISOString()
+  const cache: BroadnetDataCache = {
+    data: { ...data, updatedAt },
+    updatedAt,
+  }
+  if (!Storage.set(DATA_CACHE_KEY, cache)) {
+    throw new Error("套餐数据缓存失败")
+  }
+  return updatedAt
+}
+
+export function loadBroadnetDataCache(): BroadnetDataCache | null {
+  const stored = Storage.get<{ data?: unknown; updatedAt?: unknown }>(
+    DATA_CACHE_KEY,
+  )
+  if (!stored || typeof stored.updatedAt !== "string") return null
+  const data = asRecord(stored.data)
+  if (!data || !isBroadnetUsage(data)) return null
+  return {
+    data: { ...(data as unknown as BroadnetUsage), updatedAt: stored.updatedAt },
+    updatedAt: stored.updatedAt,
+  }
+}
+
+export function clearBroadnetDataCache(): void {
+  Storage.remove(DATA_CACHE_KEY)
 }
 
 function serviceMessage(payload: Record<string, unknown> | undefined) {
@@ -225,6 +342,27 @@ export async function checkBroadnetRewriteStatus(): Promise<BroadnetRewriteStatu
       state: "network_error",
       message: `${details.name}：${details.message}`,
     }
+  }
+}
+
+export async function refreshBroadnetData(): Promise<BroadnetRefreshResult> {
+  const cache = loadBroadnetDataCache()
+  const result = await checkBroadnetRewriteStatus()
+  if (result.state === "ready" && result.usage) {
+    const updatedAt = saveBroadnetDataCache(result.usage)
+    return { ok: true, data: result.usage, updatedAt }
+  }
+
+  return {
+    ok: false,
+    state: result.state === "ready" ? "network_error" : result.state,
+    message:
+      result.state === "ready"
+        ? "接口未返回可用的套餐数据"
+        : result.message,
+    cachedData: cache?.data,
+    cachedAt: cache?.updatedAt,
+    stale: Boolean(cache),
   }
 }
 
