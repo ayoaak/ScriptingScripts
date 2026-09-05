@@ -1,6 +1,6 @@
 /**
  * ChinaBroadnetMonitor request capture/injection bridge.
- * Supports Surge and Loon request-script environments.
+ * Supports $persistentStore-style proxy runtimes and Quantumult X.
  *
  * It stores only the access header and encrypted body.data in the proxy app.
  * It never logs or returns either value to Scripting's local storage.
@@ -8,6 +8,7 @@
 ;(function () {
   const STORE_KEY = "china_broadnet.capture.v1"
   const SCRIPTING_MARKER = "x-chinabroadnet-scripting"
+  const STATUS_MARKER = "x-chinabroadnet-status"
 
   function headerEntry(headers, expectedName) {
     const lowerName = expectedName.toLowerCase()
@@ -43,9 +44,27 @@
     }
   }
 
+  function readValue(key) {
+    if (typeof $persistentStore !== "undefined") {
+      return $persistentStore.read(key)
+    }
+    if (typeof $prefs !== "undefined") return $prefs.valueForKey(key)
+    return null
+  }
+
+  function writeValue(value, key) {
+    if (typeof $persistentStore !== "undefined") {
+      return $persistentStore.write(value, key)
+    }
+    if (typeof $prefs !== "undefined") {
+      return $prefs.setValueForKey(value, key)
+    }
+    return false
+  }
+
   function readCapture() {
     try {
-      const raw = $persistentStore.read(STORE_KEY)
+      const raw = readValue(STORE_KEY)
       if (!raw) return null
       const saved = JSON.parse(raw)
       return saved &&
@@ -60,10 +79,37 @@
     }
   }
 
+  function returnStatus(capture) {
+    const headers = {
+      "Content-Type": "application/json; charset=utf-8",
+      "X-ChinaBroadnet-Rewrite": "1",
+    }
+    const body = JSON.stringify({
+      bridge: "ChinaBroadnetMonitor",
+      version: 2,
+      captured: Boolean(capture),
+      capturedAt:
+        capture && typeof capture.capturedAt === "number"
+          ? capture.capturedAt
+          : null,
+    })
+    if (typeof $task !== "undefined") {
+      $done({ status: "HTTP/1.1 200 OK", headers, body })
+    } else {
+      $done({ response: { status: 200, headers, body } })
+    }
+  }
+
   const requestHeaders = Object.assign({}, $request.headers || {})
   const requestBody = parseBody($request.body)
+  const isStatusRequest = headerValue(requestHeaders, STATUS_MARKER) === "1"
   const isScriptingRequest =
     headerValue(requestHeaders, SCRIPTING_MARKER) === "1"
+
+  if (isStatusRequest) {
+    returnStatus(readCapture())
+    return
+  }
 
   if (!isScriptingRequest) {
     const access = headerValue(requestHeaders, "access").trim()
@@ -73,7 +119,7 @@
         : ""
 
     if (access && data) {
-      $persistentStore.write(
+      writeValue(
         JSON.stringify({ access, data, capturedAt: Date.now() }),
         STORE_KEY,
       )

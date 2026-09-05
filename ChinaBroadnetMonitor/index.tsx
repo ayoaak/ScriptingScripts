@@ -10,14 +10,19 @@ import {
 } from "scripting"
 import {
   BROADNET_QUERY_URL,
+  checkBroadnetRewriteStatus,
   probeBroadnetEndpoint,
   type BroadnetNetworkProbeResult,
+  type BroadnetRewriteStatusResult,
 } from "./broadnet"
 
 const LOON_PLUGIN_URL =
   "https://raw.githubusercontent.com/ayoaak/ScriptingScripts/test/ChinaBroadnetMonitor/rewrite/ChinaBroadnet.plugin"
 const SURGE_MODULE_URL =
   "https://raw.githubusercontent.com/ayoaak/ScriptingScripts/test/ChinaBroadnetMonitor/rewrite/ChinaBroadnet.sgmodule"
+const SHARED_REWRITE_JS_URL =
+  "https://raw.githubusercontent.com/ayoaak/ScriptingScripts/test/ChinaBroadnetMonitor/rewrite/broadnet-capture.js"
+const BROADNET_MITM_HOST = "wx.10099.com.cn"
 
 type ProxyInstaller = {
   name: "Loon" | "Surge"
@@ -46,6 +51,14 @@ function SettingsPage() {
   const [status, setStatus] = useState("尚未检测")
   const [result, setResult] = useState<BroadnetNetworkProbeResult | null>(null)
   const [installStatus, setInstallStatus] = useState("尚未安装")
+  const [rewriteBusy, setRewriteBusy] = useState(false)
+  const [rewriteResult, setRewriteResult] =
+    useState<BroadnetRewriteStatusResult | null>(null)
+
+  const copyPublicText = async (value: string, successMessage: string) => {
+    await Pasteboard.setString(value)
+    setInstallStatus(successMessage)
+  }
 
   const copyAndOpen = async (installer: ProxyInstaller) => {
     await Pasteboard.setString(installer.resourceURL)
@@ -95,6 +108,30 @@ function SettingsPage() {
     if (selection === 1) await installProxyModule(PROXY_INSTALLERS[1])
     if (selection === 2) await copyAndOpen(PROXY_INSTALLERS[0])
     if (selection === 3) await copyAndOpen(PROXY_INSTALLERS[1])
+  }
+
+  const handleRewriteStatus = async () => {
+    if (rewriteBusy) return
+    setRewriteBusy(true)
+    setRewriteResult(null)
+    try {
+      setRewriteResult(await checkBroadnetRewriteStatus())
+    } finally {
+      setRewriteBusy(false)
+    }
+  }
+
+  const displayNumber = (value: number | null, unit: string) =>
+    value === null ? "--" : `${value}${unit}`
+
+  const rewriteStateTitle = (
+    state: BroadnetRewriteStatusResult["state"],
+  ) => {
+    if (state === "not_installed") return "未安装重写"
+    if (state === "not_captured") return "已安装，但尚未捕获凭据"
+    if (state === "ready") return "已捕获，可以自动读取"
+    if (state === "credential_expired") return "凭据已经失效"
+    return "网络或接口异常"
   }
 
   const handleProbe = async () => {
@@ -157,8 +194,77 @@ function SettingsPage() {
             systemImage="square.and.arrow.down"
             action={handleInstallAssistant}
           />
+          <Button
+            title={rewriteBusy ? "检测中…" : "检查自动读取状态"}
+            systemImage="checkmark.shield"
+            action={handleRewriteStatus}
+          />
           <Text>安装状态：{installStatus}</Text>
+          <Button
+            title="复制共享 JS 链接"
+            systemImage="doc.on.doc"
+            action={() =>
+              copyPublicText(SHARED_REWRITE_JS_URL, "共享JS链接已复制")
+            }
+          />
+          <Button
+            title="复制 MITM 主机"
+            systemImage="lock.shield"
+            action={() =>
+              copyPublicText(BROADNET_MITM_HOST, "MITM主机已复制")
+            }
+          />
         </Section>
+
+        {rewriteResult ? (
+          <Section header={<Text>自动读取状态</Text>}>
+            <Text>状态：{rewriteStateTitle(rewriteResult.state)}</Text>
+            <Text>说明：{rewriteResult.message}</Text>
+            {rewriteResult.serviceStatus ? (
+              <Text>业务状态：{rewriteResult.serviceStatus}</Text>
+            ) : null}
+            {rewriteResult.capturedAt ? (
+              <Text>
+                最近捕获：{new Date(rewriteResult.capturedAt).toLocaleString()}
+              </Text>
+            ) : null}
+          </Section>
+        ) : null}
+
+        {rewriteResult?.usage ? (
+          <Section header={<Text>统一数据</Text>}>
+            <Text>
+              余额：{displayNumber(rewriteResult.usage.balance, "元")}
+            </Text>
+            <Text>
+              套餐流量：{displayNumber(rewriteResult.usage.flowTotalGB, "GB")}
+            </Text>
+            <Text>
+              已用流量：{displayNumber(rewriteResult.usage.flowUsedGB, "GB")}
+            </Text>
+            <Text>
+              剩余流量：{displayNumber(rewriteResult.usage.flowRemainingGB, "GB")}
+            </Text>
+            <Text>
+              流量剩余比例：{displayNumber(rewriteResult.usage.flowRemainingPercent, "%")}
+            </Text>
+            <Text>
+              语音总量：{displayNumber(rewriteResult.usage.voiceTotalMinutes, "分钟")}
+            </Text>
+            <Text>
+              已用语音：{displayNumber(rewriteResult.usage.voiceUsedMinutes, "分钟")}
+            </Text>
+            <Text>
+              剩余语音：{displayNumber(rewriteResult.usage.voiceRemainingMinutes, "分钟")}
+            </Text>
+            <Text>
+              语音剩余比例：{displayNumber(rewriteResult.usage.voiceRemainingPercent, "%")}
+            </Text>
+            <Text>
+              更新时间：{new Date(rewriteResult.usage.updatedAt).toLocaleString()}
+            </Text>
+          </Section>
+        ) : null}
 
         {result ? (
           <Section header={<Text>检测结果</Text>}>
@@ -191,7 +297,9 @@ function SettingsPage() {
           <Text>第二步：无凭据网络检测已通过</Text>
           <Text>第三步：Loon/Surge自动读取重写已建立</Text>
           <Text>第四步：原生安装助手已建立</Text>
-          <Text>重写状态检测和真实数据查询将在后续步骤加入</Text>
+          <Text>第五步：重写状态检测已建立</Text>
+          <Text>第六步：中国广电统一数据模型已建立</Text>
+          <Text>配置缓存和小组件真实刷新将在后续步骤加入</Text>
         </Section>
       </Form>
     </NavigationStack>
