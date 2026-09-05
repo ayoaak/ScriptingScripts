@@ -6,7 +6,7 @@
 #!type = normal
 
 [Script]
-http-request ^https:\/\/wx\.10099\.com\.cn\/contact-web\/api\/busi\/qryUserInfo(?:\?.*)?$ script-path=https://raw.githubusercontent.com/ayoaak/ScriptingScripts/test/ChinaBroadnetMonitor/rewrite/broadnet-capture.js,requires-body=true,timeout=10,tag=中国广电自动读取
+http-request ^https:\/\/wx\.10099\.com\.cn\/contact-web\/api\/busi\/qryUserInfo(?:\?.*)?$ script-path=https://raw.githubusercontent.com/ayoaak/ScriptingScripts/test/ChinaBroadnetMonitor/rewrite/broadnet-capture.js?v=0.3.1,requires-body=true,timeout=10,tag=中国广电自动读取
 
 [Mitm]
 hostname = wx.10099.com.cn

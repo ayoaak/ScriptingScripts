@@ -86,7 +86,7 @@
     }
     const body = JSON.stringify({
       bridge: "ChinaBroadnetMonitor",
-      version: 2,
+      version: 3,
       captured: Boolean(capture),
       capturedAt:
         capture && typeof capture.capturedAt === "number"
@@ -102,7 +102,9 @@
 
   const requestHeaders = Object.assign({}, $request.headers || {})
   const requestBody = parseBody($request.body)
-  const isStatusRequest = headerValue(requestHeaders, STATUS_MARKER) === "1"
+  const isStatusRequest =
+    headerValue(requestHeaders, STATUS_MARKER) === "1" ||
+    /[?&]cbm_status=1(?:&|$)/.test(String($request.url || ""))
   const isScriptingRequest =
     headerValue(requestHeaders, SCRIPTING_MARKER) === "1"
 

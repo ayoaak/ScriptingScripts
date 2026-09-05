@@ -115,8 +115,11 @@ export function parseBroadnetUsage(payload: unknown): BroadnetUsage | null {
   }
 }
 
-async function postBroadnet(headers: Record<string, string>) {
-  const response = await fetch(BROADNET_QUERY_URL, {
+async function postBroadnet(
+  headers: Record<string, string>,
+  url = BROADNET_QUERY_URL,
+) {
+  const response = await fetch(url, {
     method: "POST",
     headers: {
       Accept: "application/json",
@@ -140,13 +143,35 @@ async function postBroadnet(headers: Record<string, string>) {
 
 export async function checkBroadnetRewriteStatus(): Promise<BroadnetRewriteStatusResult> {
   try {
-    const handshake = await postBroadnet({ [BROADNET_STATUS_HEADER]: "1" })
+    const handshake = await postBroadnet(
+      { [BROADNET_STATUS_HEADER]: "1" },
+      `${BROADNET_QUERY_URL}?cbm_status=1`,
+    )
     const bridge = asRecord(handshake.json)
-    if (bridge?.bridge !== "ChinaBroadnetMonitor" || bridge?.version !== 2) {
+    const bridgeVersion = finiteNumber(bridge?.version)
+    if (
+      bridge?.bridge !== "ChinaBroadnetMonitor" ||
+      bridgeVersion === null ||
+      bridgeVersion < 2
+    ) {
+      const legacyQuery = await postBroadnet({
+        [BROADNET_SCRIPTING_HEADER]: "1",
+      })
+      const legacyPayload = asRecord(legacyQuery.json)
+      const legacyStatus = shortText(legacyPayload?.status)
+      const legacyUsage = parseBroadnetUsage(legacyQuery.json)
+      if (legacyStatus === "000000" && legacyUsage) {
+        return {
+          state: "ready",
+          message: "旧版重写可以读取；请更新模块以启用完整状态检测",
+          serviceStatus: legacyStatus,
+          usage: legacyUsage,
+        }
+      }
       return {
         state: "not_installed",
-        message: "未检测到新版自动读取重写，请安装或更新模块",
-        serviceStatus: shortText(bridge?.status),
+        message: "未检测到新版自动读取重写，请强制更新或重新安装模块",
+        serviceStatus: legacyStatus || shortText(bridge?.status),
       }
     }
 

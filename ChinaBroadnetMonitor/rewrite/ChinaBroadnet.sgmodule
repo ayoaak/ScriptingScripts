@@ -3,7 +3,7 @@
 #!system=ios
 
 [Script]
-中国广电自动读取 = type=http-request, pattern=^https:\/\/wx\.10099\.com\.cn\/contact-web\/api\/busi\/qryUserInfo(?:\?.*)?$, script-path=https://raw.githubusercontent.com/ayoaak/ScriptingScripts/test/ChinaBroadnetMonitor/rewrite/broadnet-capture.js, requires-body=true, timeout=10
+中国广电自动读取 = type=http-request, pattern=^https:\/\/wx\.10099\.com\.cn\/contact-web\/api\/busi\/qryUserInfo(?:\?.*)?$, script-path=https://raw.githubusercontent.com/ayoaak/ScriptingScripts/test/ChinaBroadnetMonitor/rewrite/broadnet-capture.js?v=0.3.1, requires-body=true, timeout=10, script-update-interval=0
 
 [MITM]
 hostname = %APPEND% wx.10099.com.cn

@@ -17,11 +17,11 @@ import {
 } from "./broadnet"
 
 const LOON_PLUGIN_URL =
-  "https://raw.githubusercontent.com/ayoaak/ScriptingScripts/test/ChinaBroadnetMonitor/rewrite/ChinaBroadnet.plugin"
+  "https://raw.githubusercontent.com/ayoaak/ScriptingScripts/test/ChinaBroadnetMonitor/rewrite/ChinaBroadnet.plugin?v=0.3.1"
 const SURGE_MODULE_URL =
-  "https://raw.githubusercontent.com/ayoaak/ScriptingScripts/test/ChinaBroadnetMonitor/rewrite/ChinaBroadnet.sgmodule"
+  "https://raw.githubusercontent.com/ayoaak/ScriptingScripts/test/ChinaBroadnetMonitor/rewrite/ChinaBroadnet.sgmodule?v=0.3.1"
 const SHARED_REWRITE_JS_URL =
-  "https://raw.githubusercontent.com/ayoaak/ScriptingScripts/test/ChinaBroadnetMonitor/rewrite/broadnet-capture.js"
+  "https://raw.githubusercontent.com/ayoaak/ScriptingScripts/test/ChinaBroadnetMonitor/rewrite/broadnet-capture.js?v=0.3.1"
 const BROADNET_MITM_HOST = "wx.10099.com.cn"
 
 type ProxyInstaller = {
