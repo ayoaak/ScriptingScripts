@@ -14,10 +14,88 @@ import {
   type BroadnetNetworkProbeResult,
 } from "./broadnet"
 
+const LOON_PLUGIN_URL =
+  "https://raw.githubusercontent.com/ayoaak/ScriptingScripts/test/ChinaBroadnetMonitor/rewrite/ChinaBroadnet.plugin"
+const SURGE_MODULE_URL =
+  "https://raw.githubusercontent.com/ayoaak/ScriptingScripts/test/ChinaBroadnetMonitor/rewrite/ChinaBroadnet.sgmodule"
+
+type ProxyInstaller = {
+  name: "Loon" | "Surge"
+  resourceURL: string
+  installURL: string
+  openURL: string
+}
+
+const PROXY_INSTALLERS: ProxyInstaller[] = [
+  {
+    name: "Loon",
+    resourceURL: LOON_PLUGIN_URL,
+    installURL: `https://www.nsloon.com/openloon/import?plugin=${encodeURIComponent(LOON_PLUGIN_URL)}`,
+    openURL: "loon://",
+  },
+  {
+    name: "Surge",
+    resourceURL: SURGE_MODULE_URL,
+    installURL: `surge:///install-module?url=${encodeURIComponent(SURGE_MODULE_URL)}`,
+    openURL: "surge:///",
+  },
+]
+
 function SettingsPage() {
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState("尚未检测")
   const [result, setResult] = useState<BroadnetNetworkProbeResult | null>(null)
+  const [installStatus, setInstallStatus] = useState("尚未安装")
+
+  const copyAndOpen = async (installer: ProxyInstaller) => {
+    await Pasteboard.setString(installer.resourceURL)
+    setInstallStatus(`${installer.name}模块地址已复制`)
+    let opened = false
+    try {
+      opened = await Safari.openURL(installer.openURL)
+    } catch {
+      opened = false
+    }
+    await Dialog.alert({
+      title: opened ? `已打开${installer.name}` : `无法打开${installer.name}`,
+      message: opened
+        ? `模块地址已复制，请在${installer.name}的模块或插件页面粘贴并添加。`
+        : `模块地址已复制到剪贴板。请确认已经安装${installer.name}，再前往模块或插件页面粘贴添加。`,
+      buttonLabel: "知道了",
+    })
+  }
+
+  const installProxyModule = async (installer: ProxyInstaller) => {
+    try {
+      const opened = await Safari.openURL(installer.installURL)
+      if (opened) {
+        setInstallStatus(`已将安装请求交给${installer.name}`)
+        return
+      }
+    } catch {
+      // URL Scheme 不可用时进入复制回退。
+    }
+    await copyAndOpen(installer)
+  }
+
+  const handleInstallAssistant = async () => {
+    const selection = await Dialog.actionSheet({
+      title: "安装自动读取模块",
+      message:
+        "选择代理软件后将尝试一键安装；如果系统无法跳转，会复制对应模块地址并尝试打开代理软件。",
+      actions: [
+        { label: "Loon 一键安装" },
+        { label: "Surge 一键安装" },
+        { label: "复制 Loon 插件地址" },
+        { label: "复制 Surge 模块地址" },
+      ],
+    })
+
+    if (selection === 0) await installProxyModule(PROXY_INSTALLERS[0])
+    if (selection === 1) await installProxyModule(PROXY_INSTALLERS[1])
+    if (selection === 2) await copyAndOpen(PROXY_INSTALLERS[0])
+    if (selection === 3) await copyAndOpen(PROXY_INSTALLERS[1])
+  }
 
   const handleProbe = async () => {
     if (busy) return
@@ -66,6 +144,22 @@ function SettingsPage() {
           <Text>{BROADNET_QUERY_URL}</Text>
         </Section>
 
+        <Section
+          header={<Text>自动读取</Text>}
+          footer={
+            <Text font="caption" foregroundStyle="secondary">
+              安装后请在代理软件中启用脚本、重写和MITM，并安装及信任HTTPS证书；随后打开中国广电App或小程序进入套餐页面，让重写捕获当前设备的授权请求。模块不会把access或data复制到Scripting。
+            </Text>
+          }
+        >
+          <Button
+            title="安装/更新重写模块"
+            systemImage="square.and.arrow.down"
+            action={handleInstallAssistant}
+          />
+          <Text>安装状态：{installStatus}</Text>
+        </Section>
+
         {result ? (
           <Section header={<Text>检测结果</Text>}>
             <Text>网络连接：{result.reachable ? "成功" : "失败"}</Text>
@@ -94,8 +188,10 @@ function SettingsPage() {
 
         <Section header={<Text>项目状态</Text>}>
           <Text>第一步：独立项目已建立</Text>
-          <Text>第二步：无凭据网络检测已就绪</Text>
-          <Text>账户、会话保存和真实数据查询将在后续步骤加入</Text>
+          <Text>第二步：无凭据网络检测已通过</Text>
+          <Text>第三步：Loon/Surge自动读取重写已建立</Text>
+          <Text>第四步：原生安装助手已建立</Text>
+          <Text>重写状态检测和真实数据查询将在后续步骤加入</Text>
         </Section>
       </Form>
     </NavigationStack>

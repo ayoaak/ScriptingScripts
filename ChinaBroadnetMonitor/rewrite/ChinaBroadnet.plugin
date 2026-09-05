@@ -1,0 +1,12 @@
+#!name = 中国广电自动读取
+#!desc = 捕获当前设备中国广电官方请求，并为 ChinaBroadnetMonitor 自动注入访问数据
+#!author = ayoaak
+#!homepage = https://github.com/ayoaak/ScriptingScripts/tree/test/ChinaBroadnetMonitor
+#!system = iOS,iPadOS
+#!type = normal
+
+[Script]
+http-request ^https:\/\/wx\.10099\.com\.cn\/contact-web\/api\/busi\/qryUserInfo(?:\?.*)?$ script-path=https://raw.githubusercontent.com/ayoaak/ScriptingScripts/test/ChinaBroadnetMonitor/rewrite/broadnet-capture.js,requires-body=true,timeout=10,tag=中国广电自动读取
+
+[Mitm]
+hostname = wx.10099.com.cn
