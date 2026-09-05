@@ -5,3 +5,4 @@
 ## 项目
 
 - [`ChinaTeleMonitor`](./ChinaTeleMonitor)：中国电信用量小组件与原生风格设置页面。
+- [`ChinaBroadnetMonitor`](./ChinaBroadnetMonitor)：中国广电用量小组件与原生风格设置页面。
