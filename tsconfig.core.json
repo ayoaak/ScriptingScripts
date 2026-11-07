@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "target": "ES2020", "module": "CommonJS", "moduleResolution": "node",
+    "strict": true, "noUncheckedIndexedAccess": true,
+    "outDir": ".build", "rootDir": "Battlefield1Stats", "lib": ["ES2020", "DOM"],
+    "skipLibCheck": true
+  },
+  "include": ["Battlefield1Stats/core/**/*.ts"]
+}

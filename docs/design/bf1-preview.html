@@ -1,0 +1,100 @@
+<style>
+#bf1-design { --bf-bg:light-dark(#f2f3f7,#101116); --bf-panel:light-dark(#fff,#1c1d24); --bf-text:light-dark(#181a20,#f4f5fa); --bf-sub:light-dark(#5d6270,#a7adbb); --bf-line:light-dark(#e3e5ec,#343640); --bf-blue:light-dark(#0964cb,#79b4ff); --bf-tint:light-dark(#e5efff,#1d3452); --bf-bar:light-dark(#f9faff,#242730); --bf-warn:light-dark(#824900,#ffcc81); font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--bf-text); padding:24px 12px; }
+#bf1-design * { box-sizing:border-box; }
+#bf1-design .bf-phone { max-width:408px; margin:auto; background:var(--bf-bg); border:1px solid var(--bf-line); border-radius:32px; overflow:hidden; box-shadow:0 14px 45px #00000014; }
+#bf1-design .bf-nav { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:18px 16px 12px; background:var(--bf-bar); border-bottom:1px solid var(--bf-line); }
+#bf1-design button { cursor:inherit; font:inherit; color:var(--bf-blue); border:1px solid var(--bf-line); background:var(--bf-panel); border-radius:24px; min-height:44px; padding:8px 14px; }
+#bf1-design button:disabled { opacity:.65; }
+#bf1-design button.bf-main { background:var(--bf-blue); color:light-dark(#fff,#071a30); border-color:transparent; }
+#bf1-design button[aria-pressed="true"] { background:var(--bf-tint); border-color:var(--bf-blue); }
+#bf1-design .bf-tools { display:flex; gap:6px; flex-wrap:wrap; }
+#bf1-design main { padding:24px 18px; }
+#bf1-design h2 { font:600 30px/1.2 -apple-system,BlinkMacSystemFont,sans-serif; margin:0 0 8px; overflow-wrap:anywhere; }
+#bf1-design h3 { font-size:17px; margin:24px 0 10px; font-weight:600; }
+#bf1-design p { margin:6px 0; }
+#bf1-design .bf-sub { color:var(--bf-sub); font-size:13px; }
+#bf1-design .bf-summary { display:flex; align-items:center; gap:14px; }
+#bf1-design .bf-mark { flex:none; display:grid; place-items:center; width:52px; height:52px; border-radius:18px; background:var(--bf-panel); color:var(--bf-sub); }
+#bf1-design .bf-stats { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--bf-line); border-radius:20px; overflow:hidden; margin:22px 0; }
+#bf1-design .bf-stat { background:var(--bf-panel); padding:17px; }
+#bf1-design .bf-number { font-size:27px; font-weight:600; font-variant-numeric:tabular-nums; }
+#bf1-design .bf-tabs { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:3px; background:var(--bf-bar); padding:4px; border-radius:24px; }
+#bf1-design .bf-tabs button { padding:6px 2px; border:0; color:var(--bf-sub); background:transparent; }
+#bf1-design .bf-tabs button[aria-selected="true"] { background:var(--bf-panel); color:var(--bf-blue); box-shadow:0 1px 5px #00000010; }
+#bf1-design .bf-list { background:var(--bf-panel); border-radius:20px; padding:0 16px; margin-top:14px; }
+#bf1-design .bf-row { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:14px 0; border-bottom:1px solid var(--bf-line); overflow-wrap:anywhere; }
+#bf1-design .bf-row:last-child { border:0; }
+#bf1-design .bf-row > :last-child { text-align:right; font-variant-numeric:tabular-nums; }
+#bf1-design .bf-row.bf-stack { display:block; }
+#bf1-design .bf-list button.bf-link { border:0; background:transparent; padding:14px 0; width:100%; text-align:left; border-radius:0; }
+#bf1-design .bf-search { display:flex; flex-wrap:wrap; gap:10px; margin:18px 0; }
+#bf1-design input { min-width:0; flex:1 1 160px; background:var(--bf-panel); color:var(--bf-text); border:1px solid var(--bf-line); border-radius:18px; padding:12px 14px; font:inherit; }
+#bf1-design .bf-notice { font-size:13px; color:var(--bf-warn); margin:12px 0; }
+#bf1-design .bf-note { max-width:408px; margin:14px auto 0; color:var(--bf-sub); font-size:12px; }
+#bf1-design [hidden] { display:none !important; }
+#bf1-design .bf-caption { letter-spacing:2px; font-size:11px; color:var(--bf-sub); }
+@media (max-width:360px) { #bf1-design {padding:12px 0;} #bf1-design main {padding:20px 14px;} #bf1-design .bf-nav {padding:14px 10px;} #bf1-design .bf-tools {gap:4px;} #bf1-design button {padding:8px 10px;} #bf1-design h2 {font-size:26px;} }
+@media (prefers-reduced-motion:no-preference) { #bf1-design button {transition:background-color .15s;} }
+</style>
+<div id="bf1-design" class="viz-dotted-background">
+ <div class="bf-phone">
+  <header class="bf-nav">
+   <button type="button" class="cursor-interaction" id="bf-home-button">‹ 玩家</button>
+   <span class="bf-sub">战地一</span>
+   <div class="bf-tools"><button type="button" class="cursor-interaction" id="bf-star" aria-label="收藏 KonekoRoku" aria-pressed="false">收藏</button><button type="button" class="cursor-interaction" id="bf-refresh" aria-label="刷新 KonekoRoku"><i data-lucide="rotate-cw" aria-hidden="true"></i></button></div>
+  </header>
+  <main id="bf-detail">
+   <p class="bf-caption">BATTLEFIELD 1</p>
+   <div class="bf-summary"><div class="bf-mark"><i data-lucide="user-round" aria-hidden="true"></i></div><div><h2>KonekoRoku</h2><p class="bf-sub">Rank 58 · 45 小时 34 分钟</p></div></div>
+   <p class="bf-sub">获取于 2026/11/07 20:50 · 调查样本</p>
+   <p class="bf-notice" id="bf-status" aria-live="polite" hidden></p>
+   <div class="bf-stats"><div class="bf-stat"><span class="bf-sub">总击杀</span><div class="bf-number">3,193</div></div><div class="bf-stat"><span class="bf-sub">K/D</span><div class="bf-number">1.37</div></div><div class="bf-stat"><span class="bf-sub">KPM</span><div class="bf-number">1.17</div></div><div class="bf-stat"><span class="bf-sub">胜率</span><div class="bf-number">45.2<span class="bf-sub"> %</span></div></div></div>
+   <div class="bf-tabs" role="tablist" aria-label="战绩分类">
+    <button id="bf-tab-overview" class="cursor-interaction" role="tab" aria-controls="bf-overview" aria-selected="true">概览</button><button id="bf-tab-weapons" class="cursor-interaction" role="tab" aria-controls="bf-weapons" aria-selected="false">武器</button><button id="bf-tab-vehicles" class="cursor-interaction" role="tab" aria-controls="bf-vehicles" aria-selected="false">载具</button><button id="bf-tab-matches" class="cursor-interaction" role="tab" aria-controls="bf-matches" aria-selected="false">对局</button>
+   </div>
+   <section id="bf-overview" role="tabpanel" aria-labelledby="bf-tab-overview">
+    <div class="bf-list"><div class="bf-row"><span>死亡</span><span>2,325</span></div><div class="bf-row"><span>命中率</span><span>18.0%</span></div><div class="bf-row"><span>爆头率</span><span>9.7%</span></div><div class="bf-row"><span>最高连杀</span><span>17</span></div><div class="bf-row"><span>最远爆头</span><span>332 m</span></div></div>
+    <div class="bf-list"><button class="bf-link cursor-interaction" id="bf-profile-toggle" aria-expanded="false" aria-controls="bf-profile">玩家资料与曾用名 ›</button><div id="bf-profile" hidden><div class="bf-row bf-stack">曾用名<p class="bf-sub">KonekoRoku · Dext9r</p></div><div class="bf-row bf-stack">战队<p class="bf-sub">暂无战队信息</p></div><div class="bf-row bf-stack">反作弊记录<p class="bf-sub">暂无可用记录</p></div></div></div>
+   </section>
+   <section id="bf-weapons" role="tabpanel" aria-labelledby="bf-tab-weapons" hidden><p class="bf-sub">武器样本 · 按击杀排序</p><div class="bf-list"><div class="bf-row bf-stack">MP 18（壕沟战）<p class="bf-sub">942 击杀 · 1.54 KPM</p></div><div class="bf-row bf-stack">M1917 Enfield（消音器）<p class="bf-sub">694 击杀 · 1.56 KPM</p></div><div class="bf-row bf-stack">M1903（狙击手）<p class="bf-sub">173 击杀 · 0.97 KPM</p></div></div></section>
+   <section id="bf-vehicles" role="tabpanel" aria-labelledby="bf-tab-vehicles" hidden><p class="bf-sub">载具样本</p><div class="bf-list"><div class="bf-row bf-stack">马匹（所有）<p class="bf-sub">101 击杀 · 7 摧毁 · 3 小时 1 分钟</p></div><div class="bf-row bf-stack">攻击坦克<p class="bf-sub">17 击杀 · 0 摧毁</p></div><div class="bf-row bf-stack">装甲列车<p class="bf-sub">17 击杀 · 4 摧毁</p></div></div></section>
+   <section id="bf-matches" role="tabpanel" aria-labelledby="bf-tab-matches" hidden><p class="bf-sub">对局样本</p><div class="bf-list"><div class="bf-row bf-stack">法乌克斯要塞<p class="bf-sub">征服 · 2026/11/07 20:36（上海）</p><div class="bf-row"><span>击杀 / 死亡</span><span>51 / 16</span></div><div class="bf-row"><span>游玩时长</span><span>13 分 6 秒</span></div></div></div></section>
+  </main>
+  <main id="bf-home" hidden>
+   <p class="bf-caption">BATTLEFIELD 1</p><h2>战地一</h2><p class="bf-sub">搜索玩家，查看战场记录。</p>
+   <form class="bf-search" id="bf-search-form"><label for="bf-name">玩家 ID</label><input id="bf-name" placeholder="例如 konekoroku" autocomplete="off"><button id="bf-query" class="bf-main cursor-interaction" type="button">查询</button></form>
+   <p id="bf-search-error" class="bf-notice" role="alert" hidden></p>
+   <h3>常用玩家</h3><div class="bf-list" id="bf-favorites"></div>
+   <h3>最近查询</h3><div class="bf-list"><button type="button" class="bf-link cursor-interaction bf-open-player">KonekoRoku <span class="bf-sub">· Rank 58 ›</span></button></div>
+  </main>
+ </div>
+ <p class="bf-note">布局预览 · 可切换分类、收藏和返回玩家页。采用已验证的历史样本；不连接接口。原生 Liquid Glass 的光学与动态效果以 iPhone 实际运行结果为准。</p>
+</div>
+<script>
+(() => {
+ const root=document.getElementById('bf1-design');
+ const find=id=>root.querySelector('#'+id);
+ const saved=window.openai?.widgetState?.privateContent;
+ const state={favorite:saved?.favorite===true,screen:saved?.screen==='home'?'home':'detail',tab:['overview','weapons','vehicles','matches'].includes(saved?.tab)?saved.tab:'overview'};
+ const appearance={mode:'system'};
+ function persist(){window.openai?.setWidgetState({modelContent:{player:'KonekoRoku'},privateContent:{...state}})?.catch(()=>{});}
+ function render(){
+  find('bf-home').hidden=state.screen!=='home';find('bf-detail').hidden=state.screen==='home';
+  find('bf-home-button').hidden=state.screen==='home';find('bf-star').hidden=state.screen==='home';find('bf-refresh').hidden=state.screen==='home';
+  find('bf-star').textContent=state.favorite?'已收藏':'收藏';find('bf-star').setAttribute('aria-pressed',String(state.favorite));find('bf-star').setAttribute('aria-label',state.favorite?'取消收藏 KonekoRoku':'收藏 KonekoRoku');
+  find('bf-favorites').innerHTML=state.favorite?'<button type="button" class="bf-link cursor-interaction bf-open-player">KonekoRoku <span class="bf-sub">· Rank 58 ›</span></button>':'<p class="bf-sub" style="padding:14px 0">还没有常用玩家，查询后可收藏。</p>';
+  for(const key of ['overview','weapons','vehicles','matches']){find('bf-'+key).hidden=state.tab!==key;find('bf-tab-'+key).setAttribute('aria-selected',String(state.tab===key));}
+ }
+ find('bf-home-button').onclick=()=>{state.screen='home';render();persist();};
+ find('bf-star').onclick=()=>{state.favorite=!state.favorite;render();persist();};
+ root.addEventListener('click',e=>{if(e.target.closest('.bf-open-player')){state.screen='detail';render();persist();}});
+ for(const key of ['overview','weapons','vehicles','matches'])find('bf-tab-'+key).onclick=()=>{state.tab=key;render();persist();};
+ find('bf-profile-toggle').onclick=()=>{const panel=find('bf-profile');panel.hidden=!panel.hidden;find('bf-profile-toggle').setAttribute('aria-expanded',String(!panel.hidden));};
+ const search=e=>{e.preventDefault();const name=find('bf-name').value.trim();const error=find('bf-search-error');if(name.toLowerCase()==='konekoroku'){error.hidden=true;state.screen='detail';render();persist();}else{error.textContent=name?'此预览仅提供 konekoroku 的调查样本。':'请输入玩家 ID';error.hidden=false;}};
+ find('bf-query').onclick=search;find('bf-search-form').onsubmit=search;find('bf-name').addEventListener('keydown',e=>{if(e.key==='Enter')search(e);});
+ find('bf-refresh').onclick=()=>{find('bf-status').hidden=false;find('bf-status').textContent='未连接实时接口，继续显示调查样本。';};
+ window.addEventListener('openai:set_globals',e=>{const p=e.detail?.globals?.widgetState?.privateContent;if(!p)return;state.favorite=p.favorite===true;state.screen=p.screen==='home'?'home':'detail';if(['overview','weapons','vehicles','matches'].includes(p.tab))state.tab=p.tab;render();});
+ render();
+ if(globalThis.Tweak){const tweak=new Tweak({container:root,onChange:()=>{root.style.colorScheme=appearance.mode==='system'?'light dark':appearance.mode;}});tweak.addSelect(appearance,'mode',{label:'界面外观',options:[{label:'跟随系统',value:'system'},{label:'浅色',value:'light'},{label:'深色',value:'dark'}]});}
+})();
+</script>
