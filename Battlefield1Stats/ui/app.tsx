@@ -1,10 +1,11 @@
 import * as S from "scripting";
-import { Button, EnvironmentValuesReader, HStack, List, Navigation, NavigationLink, NavigationStack, Picker, ProgressView, Section, Spacer, Text, TextField, VStack, useEffect, useState } from "scripting";
+import { Button, EnvironmentValuesReader, HStack, Image, List, Navigation, NavigationLink, NavigationStack, Picker, ProgressView, Script, Section, Spacer, Text, TextField, VStack, useEffect, useState } from "scripting";
 import { PlayerController } from "../core/controller";
 import { dateTime, decimal, divide, duration, Equipment, integer, PlayerData } from "../core/model";
 import { FRESH_MS } from "../core/store";
 import { Acquisition, StatRows, Summary } from "./components";
 import { EquipmentDetail, Profile, ReportDetail } from "./details";
+import { FavoritesDeck } from "./favorites";
 
 type Tab = "overview" | "weapons" | "vehicles" | "reports";
 type Sort = "kills" | "kpm" | "accuracy";
@@ -75,7 +76,7 @@ export function App({ controller }: { controller: PlayerController }) {
   const data = view.cache?.payload;
   const favorite = !!selectedId && view.db.favorites.includes(selectedId);
   const stale = !!view.cache && (now < view.cache.fetchedAt || now - view.cache.fetchedAt >= FRESH_MS);
-  const playerRows = (ids: string[], kind: "favorite" | "recent") => ids.map(id => {
+  const playerRows = (ids: string[]) => ids.map(id => {
     const player = view.db.players[id]; if (!player) return null;
     const cache = view.db.caches[id];
     return <VStack key={id} alignment="leading" spacing={6}>
@@ -85,13 +86,13 @@ export function App({ controller }: { controller: PlayerController }) {
           {cache && <Text font="caption" foregroundStyle="secondaryLabel">{`Rank ${integer(cache.payload.stats.rank)} · 获取于 ${dateTime(cache.fetchedAt)}`}</Text>}
         </VStack>
       </Button>
-      <Button title={kind === "favorite" ? "取消收藏" : "移除历史"} buttonStyle="borderless" action={() => kind === "favorite" ? controller.removeFavorite(id) : controller.removeRecent(id)} />
+      <Button title="移除历史" buttonStyle="borderless" action={() => controller.removeRecent(id)} />
     </VStack>;
   });
   return <NavigationStack>
     <EnvironmentValuesReader keys={["dynamicTypeSize"]}>{env => {
       const large = env.dynamicTypeSize.startsWith("accessibility");
-      return <List navigationTitle={screen === "home" ? "战地一" : view.player?.name ?? view.queryName} navigationBarTitleDisplayMode="inline" listStyle="insetGroup"
+      return <List navigationTitle={screen === "home" ? "战地战绩查询" : view.player?.name ?? view.queryName} navigationBarTitleDisplayMode="inline" listStyle="insetGroup"
         refreshable={async () => { if (screen === "detail" && view.queryName) await controller.refresh(); }}
         toolbar={{
           topBarLeading: screen === "detail" ? <Button title="玩家" systemImage="chevron.left" action={() => { setScreen("home"); setNotice(undefined); }} /> : undefined,
@@ -101,15 +102,23 @@ export function App({ controller }: { controller: PlayerController }) {
         {cooling && <Section><Text>{`查询过于频繁，请于 ${dateTime(view.cooldownUntil)} 后重试`}</Text><Text font="caption" foregroundStyle="secondaryLabel">冷却期间仍可查看已保存的战绩。</Text></Section>}
         {screen === "home" ? <S.Group>
           <Section header={<Text>查询玩家</Text>}>
+            <HStack spacing={12} padding={{ vertical: 6 }}>
+              <Image filePath={`${Script.directory}/assets/icon.png`} resizable scaleToFit frame={{ width: 44, height: 44 }} clipShape={{ type: "rect", cornerRadius: 10 }} accessibilityHidden />
+              <VStack alignment="leading" spacing={3}><Text font="headline">战地战绩查询</Text><Text font="caption" foregroundStyle="secondaryLabel">BATTLEFIELD · BF1</Text></VStack>
+            </HStack>
             <TextField title="玩家 ID" prompt="例如 konekoroku" value={input} onChanged={setInput} textInputAutocapitalization="never" autocorrectionDisabled onSubmit={() => query(input)} />
-            <Controls><Button title="查询" systemImage="magnifyingglass" buttonStyle={prominentStyle} controlSize="large" frame={{ minHeight: 44 }} disabled={cooling} action={() => query(input)} /></Controls>
+            <Controls><HStack><Spacer />
+              <Button buttonStyle={prominentStyle} controlSize="regular" frame={{ minHeight: 44 }} disabled={cooling} action={() => query(input)} accessibilityLabel="查询玩家战绩">
+                <Text frame={{ width: 64, height: 24, alignment: "center" }} multilineTextAlignment="center">查询</Text>
+              </Button><Spacer />
+            </HStack></Controls>
             {!input.trim() && view.error && <Text foregroundStyle="systemRed">{view.error}</Text>}
           </Section>
           <Section header={<Text>常用玩家 · {view.db.favorites.length}/50</Text>}>
-            {!view.db.favorites.length ? <Text foregroundStyle="secondaryLabel">还没有常用玩家，查询后可收藏。</Text> : playerRows(view.db.favorites, "favorite")}
+            <FavoritesDeck db={view.db} now={now} large={large} onOpen={query} onRemove={id => controller.removeFavorite(id)} />
           </Section>
           <Section header={<Text>最近查询</Text>}>
-            {!view.db.recent.length ? <Text foregroundStyle="secondaryLabel">成功查询的玩家会显示在这里。</Text> : playerRows(view.db.recent, "recent")}
+            {!view.db.recent.length ? <Text foregroundStyle="secondaryLabel">成功查询的玩家会显示在这里。</Text> : playerRows(view.db.recent)}
           </Section>
         </S.Group> : <S.Group>
           <Section>

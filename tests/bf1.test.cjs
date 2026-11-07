@@ -4,6 +4,7 @@ const { createApi, retryAt } = require('../.build/core/api.js');
 const { parsePlayer, QueryError, divide, lookupKey } = require('../.build/core/model.js');
 const { PlayerController } = require('../.build/core/controller.js');
 const { restore, FRESH_MS } = require('../.build/core/store.js');
+const { RANK_BANDS, getRank, moveCard, swipeDirection } = require('../.build/core/ranks.js');
 
 // These are intentionally synthetic accounts, never sent to a live API.
 const payload = (name = 'PlayerA', id = '100', kills = 10) => parsePlayer({
@@ -206,4 +207,29 @@ test('disposing while a request runs prevents late persistence and queued reques
   const qa = c.query('A'); const qb = c.query('B'); c.dispose(); await qb;
   a.resolve(payload()); await qa;
   assert.equal(writes, 0); assert.equal(calls, 1);
+});
+
+test('all 151 BF1 levels map to the wiki badge bands and GitHub URLs', () => {
+  for (let rank = 0; rank <= 150; rank++) {
+    const info = getRank(rank);
+    assert.ok(info); assert.equal(info.level, rank);
+    assert.match(info.imageUrl, /^https:\/\/raw\.githubusercontent\.com\/ayoaak\/ScriptingScripts\/main\/Battlefield1Stats\/assets\/ranks\/rank-\d{3}\.png$/);
+    const matching = RANK_BANDS.filter(b => rank >= b.min && rank <= b.max);
+    assert.equal(matching.length, 1);
+    assert.ok(require('node:fs').existsSync(`Battlefield1Stats/assets/ranks/${info.file}`));
+  }
+  assert.equal(getRank(58).title, '少尉 IX');
+  assert.equal(getRank(58).english, 'Second Lieutenant IX');
+  assert.equal(getRank(58).file, 'rank-050.png');
+  assert.equal(getRank(149).english, 'General X');
+  assert.equal(getRank(150).english, 'Five-Star General');
+  for (const value of [undefined, -1, 151, 58.5, NaN, Infinity]) assert.equal(getRank(value), undefined);
+});
+
+test('vertical card changes wrap correctly and ignore taps or sideways scrolls', () => {
+  assert.equal(swipeDirection(0, -60), 1); assert.equal(swipeDirection(0, 60), -1);
+  assert.equal(swipeDirection(3, -20, -600), 1);
+  for (const values of [[0, 0], [0, 10], [80, 50], [3, -20, 600], [NaN, 60]]) assert.equal(swipeDirection(...values), 0);
+  assert.equal(moveCard(0, 3, -1), 2); assert.equal(moveCard(2, 3, 1), 0);
+  assert.equal(moveCard(0, 1, 1), 0); assert.equal(moveCard(0, 0, 1), 0);
 });

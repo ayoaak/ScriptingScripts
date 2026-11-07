@@ -1,0 +1,141 @@
+{
+  "page": "https://battlefield.fandom.com/wiki/Battlefield_1_online_ranks",
+  "bands": [
+    {
+      "min": 0,
+      "max": 0,
+      "title": "Recruit",
+      "url": "https://static.wikia.nocookie.net/battlefield/images/7/79/Rank00-d404531d.png/revision/latest/scale-to-width-down/128?cb=20160831150417",
+      "file": "rank-000.png",
+      "sourceFile": "Rank00-d404531d.png"
+    },
+    {
+      "min": 1,
+      "max": 9,
+      "title": "Private",
+      "url": "https://static.wikia.nocookie.net/battlefield/images/d/d6/Rank01-9f4fc3b1.png/revision/latest/scale-to-width-down/128?cb=20160831150507",
+      "file": "rank-001.png",
+      "sourceFile": "Rank01-9f4fc3b1.png"
+    },
+    {
+      "min": 10,
+      "max": 19,
+      "title": "Corporal",
+      "url": "https://static.wikia.nocookie.net/battlefield/images/1/1c/Rank02-544c147f.png/revision/latest/scale-to-width-down/128?cb=20160831150600",
+      "file": "rank-010.png",
+      "sourceFile": "Rank02-544c147f.png"
+    },
+    {
+      "min": 20,
+      "max": 29,
+      "title": "Sergeant",
+      "url": "https://static.wikia.nocookie.net/battlefield/images/a/a9/Rank03-c6414718.png/revision/latest/scale-to-width-down/128?cb=20160831150634",
+      "file": "rank-020.png",
+      "sourceFile": "Rank03-c6414718.png"
+    },
+    {
+      "min": 30,
+      "max": 39,
+      "title": "Sergeant Major",
+      "url": "https://static.wikia.nocookie.net/battlefield/images/8/89/Rank04-e0e98e8e.png/revision/latest/scale-to-width-down/128?cb=20160901193053",
+      "file": "rank-030.png",
+      "sourceFile": "Rank04-e0e98e8e.png"
+    },
+    {
+      "min": 40,
+      "max": 49,
+      "title": "Officer Cadet",
+      "url": "https://static.wikia.nocookie.net/battlefield/images/4/42/Rank05-f0a18fc1.png/revision/latest/scale-to-width-down/128?cb=20160903185331",
+      "file": "rank-040.png",
+      "sourceFile": "Rank05-f0a18fc1.png"
+    },
+    {
+      "min": 50,
+      "max": 59,
+      "title": "Second Lieutenant",
+      "url": "https://static.wikia.nocookie.net/battlefield/images/a/a6/Rank06-7234804e.png/revision/latest/scale-to-width-down/128?cb=20160903190613",
+      "file": "rank-050.png",
+      "sourceFile": "Rank06-7234804e.png"
+    },
+    {
+      "min": 60,
+      "max": 69,
+      "title": "First Lieutenant",
+      "url": "https://static.wikia.nocookie.net/battlefield/images/5/58/Rank07-c7ef219b.png/revision/latest/scale-to-width-down/128?cb=20160903193044",
+      "file": "rank-060.png",
+      "sourceFile": "Rank07-c7ef219b.png"
+    },
+    {
+      "min": 70,
+      "max": 79,
+      "title": "Captain",
+      "url": "https://static.wikia.nocookie.net/battlefield/images/6/68/Rank08-1e29cffd.png/revision/latest/scale-to-width-down/128?cb=20160903191413",
+      "file": "rank-070.png",
+      "sourceFile": "Rank08-1e29cffd.png"
+    },
+    {
+      "min": 80,
+      "max": 89,
+      "title": "Major",
+      "url": "https://static.wikia.nocookie.net/battlefield/images/8/8c/Rank09-bbd77aa4.png/revision/latest/scale-to-width-down/128?cb=20160906120128",
+      "file": "rank-080.png",
+      "sourceFile": "Rank09-bbd77aa4.png"
+    },
+    {
+      "min": 90,
+      "max": 99,
+      "title": "Lieutenant Colonel",
+      "url": "https://static.wikia.nocookie.net/battlefield/images/d/de/Rank10-5d61f681.png/revision/latest/scale-to-width-down/128?cb=20160907211948",
+      "file": "rank-090.png",
+      "sourceFile": "Rank10-5d61f681.png"
+    },
+    {
+      "min": 100,
+      "max": 109,
+      "title": "Colonel",
+      "url": "https://static.wikia.nocookie.net/battlefield/images/1/1a/Battlefield_1_Colonel.png/revision/latest/scale-to-width-down/128?cb=20160908211456",
+      "file": "rank-100.png",
+      "sourceFile": "Battlefield 1 Colonel.png"
+    },
+    {
+      "min": 110,
+      "max": 119,
+      "title": "Brigadier General",
+      "url": "https://static.wikia.nocookie.net/battlefield/images/f/f7/110.png/revision/latest/scale-to-width-down/128?cb=20170315033532",
+      "file": "rank-110.png",
+      "sourceFile": "110.png"
+    },
+    {
+      "min": 120,
+      "max": 129,
+      "title": "Major General",
+      "url": "https://static.wikia.nocookie.net/battlefield/images/7/7b/120.png/revision/latest/scale-to-width-down/128?cb=20170905133113",
+      "file": "rank-120.png",
+      "sourceFile": "120.png"
+    },
+    {
+      "min": 130,
+      "max": 139,
+      "title": "Lieutenant General",
+      "url": "https://static.wikia.nocookie.net/battlefield/images/c/ca/130.png/revision/latest/scale-to-width-down/128?cb=20171211194758",
+      "file": "rank-130.png",
+      "sourceFile": "130.png"
+    },
+    {
+      "min": 140,
+      "max": 149,
+      "title": "General",
+      "url": "https://static.wikia.nocookie.net/battlefield/images/0/09/140.png/revision/latest/scale-to-width-down/128?cb=20180220185208",
+      "file": "rank-140.png",
+      "sourceFile": "140.png"
+    },
+    {
+      "min": 150,
+      "max": 150,
+      "title": "Five-Star General",
+      "url": "https://static.wikia.nocookie.net/battlefield/images/0/09/150.png/revision/latest/scale-to-width-down/128?cb=20180508171542",
+      "file": "rank-150.png",
+      "sourceFile": "150.png"
+    }
+  ]
+}

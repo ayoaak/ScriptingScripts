@@ -1,6 +1,6 @@
-# 战地一战绩
+# 战地战绩查询
 
-版本 0.1.0，待用户真机验收。[一键添加到 Scripting](https://scripting.fun/import_scripts?urls=%5B%22https%3A%2F%2Fraw.githubusercontent.com%2Fayoaak%2FScriptingScripts%2Fmain%2FBattlefield1Stats%2FBattlefield1Stats.scripting%22%5D) · [直接下载安装包](https://raw.githubusercontent.com/ayoaak/ScriptingScripts/main/Battlefield1Stats/Battlefield1Stats.scripting) · [验收清单](../docs/bf1-validation.md)。
+版本 0.2.0，待用户真机验收。[一键添加到 Scripting](https://scripting.fun/import_scripts?urls=%5B%22https%3A%2F%2Fraw.githubusercontent.com%2Fayoaak%2FScriptingScripts%2Fmain%2FBattlefield1Stats%2FBattlefield1Stats.scripting%22%5D) · [直接下载安装包](https://raw.githubusercontent.com/ayoaak/ScriptingScripts/main/Battlefield1Stats/Battlefield1Stats.scripting) · [验收清单](../docs/bf1-validation.md)。
 
 Scripting 原生 TSX 脚本，查询 stats.2788.pro 提供的战地一数据。`konekoroku` 为输入示例，首次打开不会自动查询或收藏。
 
@@ -12,6 +12,9 @@ Scripting 原生 TSX 脚本，查询 stats.2788.pro 提供的战地一数据。`
 - 请求串行执行，同一玩家在途去重，队列只保留最后一次选择；迟到响应不会切换当前页面。
 - 处理 400、404、429、超时、非 JSON 错误响应、数据缺失和保存失败。
 - 原生 List / NavigationStack / Picker；支持条件满足时采用 Liquid Glass 按钮和容器，系统语义颜色跟随深浅色。
+- 常用玩家以堆叠卡片呈现，上下滑动换人，点击进入详情；卡片展示玩家 ID、军衔/等级、总击杀、KD、KPM、胜率。
+- 真实 BF1 军衔徽章从本仓库 GitHub 图片地址加载，覆盖 0–150 级；加载失败显示等级占位，不放入安装包。
+- 自定义 BF 图标已移除数字 6；首页查询按钮缩小并居中。
 
 ## 文件
 
@@ -30,13 +33,15 @@ ui/details.tsx       玩家、对局、装备详情
 
 ## 运行与发布准备
 
+从旧版“战地一战绩”更新且希望保留私有数据时，先在 Scripting 将已安装脚本重命名为“战地战绩查询”，再导入并选择覆盖同名脚本。直接创建另一份新脚本不会自动读取旧脚本的私有存储；本版保留原存储键和数据结构。
+
 目标为 iPhone 上的 Scripting 主应用。使用原生 Liquid Glass 需要 iOS 26+ 和支持相关 API 的 Scripting 版本；实际安装版本的声明文件及真机行为尚未验证。
 
 在 Scripting 中新建 TypeScript 脚本，将此目录内容按原结构放入脚本目录，以 `index.tsx` 为入口运行。若使用官方桌面 CLI，可连接 iPhone 同步源码及设备版本的 `.d.ts`，再运行编辑器诊断。本仓库不附带伪造的 Scripting 类型声明。
 
 可点击“一键添加”在 Scripting 中导入，也可下载 `.scripting` 文件后交给 Scripting 打开。包使用与本仓库已有脚本一致的 ZIP 内容格式，包含全部运行源码。
 
-仓库根目录执行 `npm run package:bf1` 会生成 `Battlefield1Stats/Battlefield1Stats.scripting` 及相同内容的 `dist/bf1.zip`，其顶层为 script.json、index.tsx、core/、ui/ 等，符合官方远程 ZIP 源码布局。
+仓库根目录执行 `npm run package:bf1` 会生成 `Battlefield1Stats/Battlefield1Stats.scripting` 及相同内容的 `dist/bf1.zip`，其顶层为 script.json、index.tsx、core/、ui/、assets/icon.png 等。`assets/ranks/` 整个目录排除在包外，徽章仅由 GitHub 在线加载。
 
 也可在 Scripting 脚本的远程来源设置使用以下项目子目录：
 

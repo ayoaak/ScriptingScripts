@@ -8,7 +8,7 @@ destination = root / "dist" / "bf1.zip"
 destination.parent.mkdir(exist_ok=True)
 with ZipFile(destination, "w", ZIP_DEFLATED) as archive:
     for file in sorted(source.rglob("*")):
-        if file.is_file() and file.suffix in {".ts", ".tsx", ".json", ".md"}:
+        if file.is_file() and file.suffix in {".ts", ".tsx", ".json", ".md", ".png"} and "ranks" not in file.relative_to(source).parts:
             info = ZipInfo(file.relative_to(source).as_posix(), (1980, 1, 1, 0, 0, 0))
             info.compress_type = ZIP_DEFLATED
             info.external_attr = 0o100644 << 16

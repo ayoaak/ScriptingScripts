@@ -6,7 +6,7 @@
 
 - [`ChinaTeleMonitor`](./ChinaTeleMonitor)：中国电信用量小组件与原生风格设置页面。[[一键添加到 Scripting](https://scripting.fun/import_scripts?urls=%5B%22https%3A%2F%2Fraw.githubusercontent.com%2Fayoaak%2FScriptingScripts%2Fmain%2FChinaTeleMonitor%2FChinaTeleMonitor.scripting%22%5D)]
 - [`ChinaBroadnetMonitor`](./ChinaBroadnetMonitor)：中国广电用量小组件与原生风格设置页面。[[一键添加到 Scripting](https://scripting.fun/import_scripts?urls=%5B%22https%3A%2F%2Fraw.githubusercontent.com%2Fayoaak%2FScriptingScripts%2Fmain%2FChinaBroadnetMonitor%2FChinaBroadnetMonitor.scripting%22%5D)]
-- [`Battlefield1Stats`](./Battlefield1Stats)：战地一多玩家战绩查询、收藏、历史与独立缓存，原生 Liquid Glass 操作界面。[[一键添加到 Scripting](https://scripting.fun/import_scripts?urls=%5B%22https%3A%2F%2Fraw.githubusercontent.com%2Fayoaak%2FScriptingScripts%2Fmain%2FBattlefield1Stats%2FBattlefield1Stats.scripting%22%5D)] **0.1.0 待用户真机验收**；[验证报告](./docs/bf1-validation.md)。
+- [`Battlefield1Stats`](./Battlefield1Stats)：战地战绩查询：多玩家堆叠卡片、在线军衔徽章、收藏、历史与独立缓存，原生 Liquid Glass 操作界面。[[一键添加到 Scripting](https://scripting.fun/import_scripts?urls=%5B%22https%3A%2F%2Fraw.githubusercontent.com%2Fayoaak%2FScriptingScripts%2Fmain%2FBattlefield1Stats%2FBattlefield1Stats.scripting%22%5D)] **0.2.0 待用户真机验收**；[验证报告](./docs/bf1-validation.md)。
 
 一键添加链接会唤起 Scripting 导入项目；如果系统没有跳转，可进入对应项目页面直接下载 `.scripting` 安装包。
 
