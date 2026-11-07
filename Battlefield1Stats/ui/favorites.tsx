@@ -1,8 +1,8 @@
 import { Animation, Button, DragGesture, HStack, Image, RoundedRectangle, Spacer, Text, VStack, ZStack, useEffect, useObservable, useRef, useState, withAnimation } from "scripting";
 import { dateTime, decimal, divide, integer, percent, Stats } from "../core/model";
-import { getRank, moveCard, swipeDirection } from "../core/ranks";
+import { getRank } from "../core/ranks";
 import { Database, FRESH_MS } from "../core/store";
-import { CARD_NAME_SIZE, CARD_RANK_SIZE, deckLayers, trackedDrag } from "../core/deck";
+import { CARD_NAME_SIZE, CARD_RANK_SIZE, boundedPosition, deckLayers, draggedPosition, releasedPosition } from "../core/deck";
 
 function RankAvatar({ rank }: { rank?: number }) {
   const info = getRank(rank);
@@ -60,60 +60,90 @@ export function FavoritesDeck({ db, now, large, onOpen, onRemove }: {
 }) {
   const ids = db.favorites.filter(id => !!db.players[id]);
   const focusedId = useObservable<string | undefined>(ids[0]);
-  const drag = useObservable(0);
+  const position = useObservable(0);
+  const expansion = useObservable(0);
+  const enteringId = useObservable<string | undefined>(undefined);
   const settling = useObservable(false);
   const busy = useRef(false);
+  const dragOrigin = useRef<number | undefined>(undefined);
   const alive = useRef(true);
   const generation = useRef(0);
   useEffect(() => () => { alive.current = false; generation.current++; }, []);
   useEffect(() => {
-    generation.current++; busy.current = false;
-    settling.setValue(false); drag.setValue(0);
+    generation.current++; busy.current = false; dragOrigin.current = undefined;
+    settling.setValue(false); enteringId.setValue(undefined); expansion.setValue(0);
+    position.setValue(Math.max(0, ids.indexOf(focusedId.value ?? "")));
   }, [ids.join("|")]);
   if (!ids.length) return <Text foregroundStyle="secondaryLabel">还没有常用玩家，查询后可收藏。</Text>;
-  const index = Math.max(0, ids.indexOf(focusedId.value ?? ""));
+  const index = Math.round(boundedPosition(position.value, ids.length));
   const player = db.players[ids[index]!]!;
-  const travel = large ? 600 : 360;
-  const layers = deckLayers(ids, index, drag.value, travel);
-  async function release(direction: number) {
-    if (busy.current || ids.length < 2) return;
+  const step = large ? 360 : 220;
+  const layers = deckLayers(ids, position.value, expansion.value, step, enteringId.value);
+
+  async function animate(body: () => void, after?: () => void) {
+    if (busy.current) return;
     busy.current = true; settling.setValue(true);
     const token = generation.current;
     try {
-      // Drag updates have no implicit animation. Only release uses a native spring,
-      // and reordering waits for the native completion instead of a JS timeout.
-      await withAnimation(Animation.spring({ duration: 0.42, bounce: 0.16 }), "removed", () => drag.setValue(direction ? -direction * travel : 0));
-      if (!alive.current || token !== generation.current) return;
-      await withAnimation(Animation.linear(0), () => {
-        if (direction) focusedId.setValue(ids[moveCard(index, ids.length, direction)]);
-        drag.setValue(0);
-      });
+      await withAnimation(Animation.spring({ duration: 0.4, bounce: 0 }), "removed", body);
+      if (alive.current && token === generation.current) after?.();
     } catch (error) {
       console.error("卡片动画未完成", error);
-      if (alive.current && token === generation.current) drag.setValue(0);
+      if (alive.current && token === generation.current) {
+        enteringId.setValue(undefined);
+        position.setValue(Math.round(boundedPosition(position.value, ids.length)));
+      }
     } finally {
       if (alive.current && token === generation.current) { busy.current = false; settling.setValue(false); }
     }
   }
+  function choose(id: string) {
+    if (busy.current || dragOrigin.current !== undefined) return;
+    const target = ids.indexOf(id);
+    if (target < 0) return;
+    // First tap on a back card fans out the whole deck, without querying anyone.
+    if (expansion.value < 0.5 && target !== index) {
+      void animate(() => expansion.setValue(1));
+      return;
+    }
+    const name = db.players[id]!.lookupName;
+    void animate(() => {
+      enteringId.setValue(id); position.setValue(target); expansion.setValue(0);
+    }, () => { focusedId.setValue(id); onOpen(name); });
+  }
+  function finishDrag(velocity: number) {
+    if (dragOrigin.current === undefined || busy.current) return;
+    dragOrigin.current = undefined;
+    const target = releasedPosition(position.value, velocity, step, ids.length);
+    void animate(() => position.setValue(target), () => focusedId.setValue(ids[target]));
+  }
   return <VStack alignment="leading" spacing={10}>
-    <ZStack alignment="top" padding={{ top: ids.length > 2 ? 18 : 0, bottom: ids.length > 1 ? 34 : 0 }}
-      highPriorityGesture={ids.length > 1 ? DragGesture({ minDistance: 10, coordinateSpace: "local" })
-        .onChanged(d => { if (!busy.current && ids.length > 1) drag.setValue(trackedDrag(d.translation.width, d.translation.height, travel)); })
-        .onEnded(d => { if (!busy.current && ids.length > 1) void release(swipeDirection(d.translation.width, d.translation.height, d.velocity.height)); }) : undefined}>
+    <ZStack alignment="center" frame={{ height: large ? 640 : 420 }} clipped contentShape={{ type: "rect" }}
+      highPriorityGesture={ids.length > 1 && expansion.value > 0.5 ? DragGesture({ minDistance: 10, coordinateSpace: "local" })
+        .onChanged(d => {
+          if (busy.current || Math.abs(d.translation.width) >= Math.abs(d.translation.height)) return;
+          if (dragOrigin.current === undefined) dragOrigin.current = position.value;
+          position.setValue(draggedPosition(dragOrigin.current, d.translation.width, d.translation.height, step, ids.length));
+        })
+        .onEnded(d => finishDrag(d.velocity.height)) : undefined}>
       {layers.map(layer => <Button key={layer.id} buttonStyle="plain"
-        action={() => { if (!busy.current && layer.slot === 0) onOpen(db.players[layer.id]!.lookupName); }}
-        disabled={layer.slot !== 0 || settling.value}
-        accessibilityHidden={layer.slot !== 0}
-        accessibilityLabel={`查看 ${db.players[layer.id]!.name} 的战绩`}
-        accessibilityHint="上下拖动卡片切换常用玩家，轻点查看详情。"
+        action={() => choose(layer.id)} disabled={settling.value}
+        accessibilityLabel={`${db.players[layer.id]!.name}${layer.index === index ? "，当前玩家" : ""}`}
+        accessibilityHint={expansion.value > 0.5 ? "轻点后卡片居中，再进入此玩家战绩。" : layer.index === index ? "轻点查看战绩。" : "轻点展开所有常用玩家卡片。"}
         frame={{ maxWidth: "infinity", alignment: "leading" }}
-        offset={{ x: 0, y: layer.y }} scaleEffect={layer.scale} opacity={layer.opacity} zIndex={layer.z}>
+        offset={{ x: layer.x, y: layer.y }} scaleEffect={layer.scale}
+        rotationEffect={layer.rotation} opacity={layer.opacity} zIndex={layer.z}
+        shadow={{ color: "black", radius: layer.index === index ? 10 : 4, x: 0, y: 4 }}>
         <FavoriteCard db={db} id={layer.id} now={now} large={large} />
       </Button>)}
     </ZStack>
-    <Text font="caption" foregroundStyle="secondaryLabel" accessibilityLabel={`第 ${index + 1} 位，共 ${ids.length} 位`}>{`${index + 1} / ${ids.length}`}</Text>
-    <HStack><Text font="caption" foregroundStyle="secondaryLabel">上下滑动换人 · 点击查看战绩</Text><Spacer />
-      <Button title="取消收藏" buttonStyle="borderless" frame={{ minHeight: 44 }} disabled={settling.value} action={() => onRemove(player.id)} />
+    <HStack>
+      <Text font="caption" foregroundStyle="secondaryLabel" accessibilityLabel={`第 ${index + 1} 位，共 ${ids.length} 位`}>{`${index + 1} / ${ids.length}`}</Text>
+      <Spacer />
+      {ids.length > 1 && <Button title={expansion.value > 0.5 ? "收起卡组" : "展开卡组"} buttonStyle="borderless" frame={{ minHeight: 44 }} disabled={settling.value}
+        action={() => { dragOrigin.current = undefined; void animate(() => { position.setValue(index); expansion.setValue(expansion.value > 0.5 ? 0 : 1); }); }} />}
     </HStack>
+    <Text font="caption" foregroundStyle="secondaryLabel">{expansion.value > 0.5 ? "上下滑动浏览 · 点选后居中进入" : "点击后排卡片展开 · 点击当前玩家进入"}</Text>
+    <Button title="取消收藏" buttonStyle="borderless" frame={{ minHeight: 44 }} disabled={settling.value} action={() => onRemove(player.id)} />
   </VStack>;
 }

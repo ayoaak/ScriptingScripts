@@ -1,6 +1,6 @@
 # 战地战绩查询
 
-版本 0.3.0，待用户真机验收。[一键添加到 Scripting](https://scripting.fun/import_scripts?urls=%5B%22https%3A%2F%2Fraw.githubusercontent.com%2Fayoaak%2FScriptingScripts%2Fmain%2FBattlefield1Stats%2FBattlefield1Stats.scripting%22%5D) · [直接下载安装包](https://raw.githubusercontent.com/ayoaak/ScriptingScripts/main/Battlefield1Stats/Battlefield1Stats.scripting) · [验收清单](../docs/bf1-validation.md)。
+版本 0.4.0，待用户真机验收。[一键添加到 Scripting](https://scripting.fun/import_scripts?urls=%5B%22https%3A%2F%2Fraw.githubusercontent.com%2Fayoaak%2FScriptingScripts%2Fmain%2FBattlefield1Stats%2FBattlefield1Stats.scripting%22%5D) · [直接下载安装包](https://raw.githubusercontent.com/ayoaak/ScriptingScripts/main/Battlefield1Stats/Battlefield1Stats.scripting) · [验收清单](../docs/bf1-validation.md)。
 
 Scripting 原生 TSX 脚本，查询 stats.2788.pro 提供的战地一数据。`konekoroku` 为输入示例，首次打开不会自动查询或收藏。
 
@@ -12,7 +12,7 @@ Scripting 原生 TSX 脚本，查询 stats.2788.pro 提供的战地一数据。`
 - 请求串行执行，同一玩家在途去重，队列只保留最后一次选择；迟到响应不会切换当前页面。
 - 处理 400、404、429、超时、非 JSON 错误响应、数据缺失和保存失败。
 - 原生 List / NavigationStack / Picker；支持条件满足时采用 Liquid Glass 按钮和容器，系统语义颜色跟随深浅色。
-- 常用玩家以真实玩家卡片叠放，拖动跟手、后卡缩放补位，松手原生弹簧切换或回弹；无上下切换按钮，点击进入详情；卡片展示玩家 ID、军衔/等级、总击杀、KD、KPM、胜率。
+- 常用玩家以真实卡片旋转叠放；点击后排卡片散开卡组，上下滑动浏览，点选后先居中再进入详情；无上下切换按钮；卡片展示玩家 ID、军衔/等级、总击杀、KD、KPM、胜率。
 - 真实 BF1 军衔徽章从本仓库 GitHub 图片地址加载，覆盖 0–150 级；加载失败显示等级占位，不放入安装包。
 - 自定义 BF 图标已移除数字 6；首页查询按钮缩小并居中。
 
@@ -27,7 +27,7 @@ core/api.ts          HTTP 状态、超时和 Retry-After
 core/store.ts        私有存储、恢复与容量规则
 core/controller.ts   玩家身份、选择、队列、缓存与收藏
 core/ranks.ts        军衔范围及 GitHub 徽章地址
-core/deck.ts         真实卡片层级与连续位移计算
+core/deck.ts         堆叠/散开、连续浏览及居中布局计算
 ui/app.tsx           查询首页、战绩页及列表
 ui/favorites.tsx     原生拖动与弹簧动画卡片堆叠
 ui/components.tsx    指标与装备统计

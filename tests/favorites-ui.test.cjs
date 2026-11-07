@@ -69,33 +69,81 @@ test('native deck contains real player cards and no previous/next buttons', () =
   assert.equal(numbers.type(numbers.props).props.frame.alignment, 'leading');
 });
 
-test('native spring finishes before index changes and a short gesture springs back', async () => {
-  const native = host(), props = fixture();
+function card(tree, id) { return nodes(tree).find(n => n.type === 'Button' && n.props.key === id); }
+async function expand(native, props) {
+  card(native.render(props), 'persona:2').props.action();
+  native.finish(); await tick();
+  return native.render(props);
+}
+
+test('back-card tap expands without querying; choosing waits for native centering before entering', async () => {
+  const native = host(), opened = [], props = { ...fixture(), onOpen: name => opened.push(name) };
+  const before = native.render(props);
+  assert.equal(card(before, 'persona:2').props.disabled, false);
+  card(before, 'persona:2').props.action();
   let tree = native.render(props);
-  const gesture = nodes(tree).find(n => n.type === 'ZStack').props.highPriorityGesture;
-  gesture.changed({ translation: { width: 0, height: -120 } });
-  tree = native.render(props);
-  assert.equal(nodes(tree).find(n => n.type === 'Button' && n.props.key === 'persona:1').props.offset.y, -120);
-  gesture.ended({ translation: { width: 0, height: -120 }, velocity: { height: 0 } });
-  tree = native.render(props);
+  assert.equal(opened.length, 0);
+  assert.equal(card(tree, 'persona:2').props.offset.y, 220);
+  assert.equal(card(tree, 'persona:2').props.disabled, true);
   assert.equal(native.animationLog[0].criteria, 'removed');
-  assert.equal(native.animationLog[0].animation.kind, 'spring');
-  assert.equal(nodes(tree).find(n => n.type === 'Button' && n.props.zIndex === 10).props.key, 'persona:1');
-  native.finish(); await tick(); tree = native.render(props);
-  assert.equal(nodes(tree).find(n => n.type === 'Button' && n.props.zIndex === 10).props.key, 'persona:2');
-  const nextGesture = nodes(tree).find(n => n.type === 'ZStack').props.highPriorityGesture;
-  nextGesture.changed({ translation: { width: 0, height: 20 } });
-  nextGesture.ended({ translation: { width: 0, height: 20 }, velocity: { height: 0 } });
-  native.finish(); await tick(); tree = native.render(props);
-  const front = nodes(tree).find(n => n.type === 'Button' && n.props.zIndex === 10);
-  assert.equal(front.props.key, 'persona:2'); assert.equal(front.props.offset.y, 0);
+  native.finish(); await tick();
+  tree = native.render(props);
+  card(tree, 'persona:2').props.action();
+  tree = native.render(props);
+  const chosen = card(tree, 'persona:2');
+  assert.equal(chosen.props.offset.y, 0); assert.equal(chosen.props.offset.x, 0);
+  assert.equal(chosen.props.rotationEffect, 0); assert.equal(chosen.props.scaleEffect, 1);
+  assert.equal(chosen.props.zIndex, 100); assert.equal(card(tree, 'persona:1').props.opacity, 0);
+  assert.deepEqual(opened, []);
+  card(tree, 'persona:3').props.action(); // repeated taps are locked out
+  native.finish(); await tick();
+  assert.deepEqual(opened, ['Bravo']);
 });
 
-test('unmounting while the native spring runs ignores its late completion', async () => {
-  const native = host(), props = fixture(); const tree = native.render(props);
-  const gesture = nodes(tree).find(n => n.type === 'ZStack').props.highPriorityGesture;
-  gesture.changed({ translation: { width: 0, height: -120 } });
-  gesture.ended({ translation: { width: 0, height: -120 }, velocity: { height: 0 } });
-  native.unmount(); native.finish(); await tick();
-  assert.equal(native.animationLog.length, 1); // no follow-up identity/index transaction
+test('expanded drag tracks the finger, snaps without querying, and all fifty players are reachable', async () => {
+  const native = host(), opened = [], props = { ...fixture(), onOpen: name => opened.push(name) };
+  for (let i = 4; i <= 50; i++) {
+    const id = `persona:${i}`; props.db.favorites.push(id);
+    props.db.players[id] = { id, name: `Player${i}`, lookupName: `Player${i}`, aliases: [], viewedAt: 1000 };
+  }
+  let tree = await expand(native, props);
+  let gesture = nodes(tree).find(n => n.type === 'ZStack').props.highPriorityGesture;
+  gesture.changed({ translation: { width: 0, height: -110 } });
+  tree = native.render(props);
+  assert.equal(card(tree, 'persona:1').props.offset.y, -110);
+  gesture.ended({ velocity: { height: 0 } });
+  native.finish(); await tick();
+  tree = native.render(props);
+  assert.equal(card(tree, 'persona:2').props.offset.y, 0);
+  gesture = nodes(tree).find(n => n.type === 'ZStack').props.highPriorityGesture;
+  gesture.changed({ translation: { width: 0, height: -220 * 100 } });
+  gesture.ended({ velocity: { height: -1000 } });
+  native.finish(); await tick(); tree = native.render(props);
+  assert.equal(card(tree, 'persona:50').props.offset.y, 0);
+  assert.equal(nodes(tree).filter(n => typeof n.type === 'function' && n.type.name === 'FavoriteCard').length, 3);
+  assert.deepEqual(opened, []);
+  card(tree, 'persona:50').props.action();
+  native.finish(); await tick();
+  assert.deepEqual(opened, ['Player50']);
+});
+
+test('unmount or changed favorites invalidates pending entry completion', async () => {
+  for (const change of ['unmount', 'remove']) {
+    const native = host(), opened = [], props = { ...fixture(), onOpen: name => opened.push(name) };
+    let tree = await expand(native, props);
+    card(tree, 'persona:2').props.action();
+    if (change === 'unmount') native.unmount();
+    else { props.db.favorites.splice(1, 1); native.render(props); }
+    native.finish(); await tick();
+    assert.deepEqual(opened, []);
+  }
+});
+
+test('single favorite enters after animation without capturing list scroll gestures', async () => {
+  const native = host(), opened = [], props = { ...fixture(), onOpen: name => opened.push(name) };
+  props.db.favorites.splice(1);
+  const tree = native.render(props);
+  assert.equal(nodes(tree).find(n => n.type === 'ZStack').props.highPriorityGesture, undefined);
+  card(tree, 'persona:1').props.action(); assert.deepEqual(opened, []);
+  native.finish(); await tick(); assert.deepEqual(opened, ['Alpha']);
 });
