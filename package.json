@@ -1,6 +1,6 @@
 {
   "name": "scripting-scripts",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "check": "tsc -p tsconfig.core.json && node tools/check-ui.cjs",

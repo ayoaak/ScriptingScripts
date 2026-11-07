@@ -5,6 +5,7 @@ const { parsePlayer, QueryError, divide, lookupKey } = require('../.build/core/m
 const { PlayerController } = require('../.build/core/controller.js');
 const { restore, FRESH_MS } = require('../.build/core/store.js');
 const { RANK_BANDS, getRank, moveCard, swipeDirection } = require('../.build/core/ranks.js');
+const { deckLayers, trackedDrag, CARD_NAME_SIZE, CARD_RANK_SIZE } = require('../.build/core/deck.js');
 
 // These are intentionally synthetic accounts, never sent to a live API.
 const payload = (name = 'PlayerA', id = '100', kills = 10) => parsePlayer({
@@ -233,3 +234,53 @@ test('vertical card changes wrap correctly and ignore taps or sideways scrolls',
   assert.equal(moveCard(0, 3, -1), 2); assert.equal(moveCard(2, 3, 1), 0);
   assert.equal(moveCard(0, 1, 1), 0); assert.equal(moveCard(0, 0, 1), 0);
 });
+
+test('the animated deck renders distinct real players with stable identity keys', () => {
+  for (let count = 1; count <= 50; count++) {
+    const ids = Array.from({ length: count }, (_, i) => `player-${i}`);
+    for (const y of [-200, 0, 200]) {
+      const layers = deckLayers(ids, 0, y, 360);
+      assert.equal(new Set(layers.map(l => l.id)).size, layers.length);
+      assert.ok(layers.length <= 4);
+      assert.ok(layers.every(l => ids.includes(l.id)));
+      assert.equal(layers.find(l => l.slot === 0).id, ids[0]);
+      assert.ok(layers.every(l => l.opacity >= 0 && l.opacity <= 1 && l.scale > 0));
+    }
+  }
+  assert.deepEqual(deckLayers([], 0, 0, 360), []);
+});
+
+test('the front card tracks the finger while its actual successor moves and grows', () => {
+  const ids = ['A', 'B', 'C', 'D'];
+  const idle = deckLayers(ids, 0, 0, 360), moving = deckLayers(ids, 0, -120, 360);
+  assert.equal(moving.find(l => l.id === 'A').y, -120);
+  assert.ok(moving.find(l => l.id === 'A').opacity < 1);
+  assert.ok(moving.find(l => l.id === 'B').scale > idle.find(l => l.id === 'B').scale);
+  assert.ok(moving.find(l => l.id === 'B').y < idle.find(l => l.id === 'B').y);
+  assert.equal(trackedDrag(0, -120, 360), -120);
+  assert.equal(trackedDrag(0, -900, 360), -324);
+  assert.equal(trackedDrag(80, 20, 360), 0);
+});
+
+test('promoted cards retain their identity, position and size across animated reorder', () => {
+  const ids = ['A', 'B', 'C', 'D'];
+  for (const direction of [-1, 1]) {
+    const finished = deckLayers(ids, 0, -direction * 360, 360);
+    const after = deckLayers(ids, moveCard(0, ids.length, direction), 0, 360);
+    const promoted = finished.find(l => l.slot === direction);
+    const front = after.find(l => l.slot === 0);
+    assert.equal(promoted.id, front.id); assert.equal(promoted.y, front.y); assert.equal(promoted.scale, front.scale);
+    assert.equal(finished.find(l => l.slot === 0).opacity, 0);
+  }
+  const start = deckLayers(ids, 0, 0, 360);
+  assert.deepEqual(deckLayers(ids, 0, 0, 360), start); // a cancelled release has the exact idle targets
+  const single = deckLayers(['A'], 0, -200, 360)[0];
+  assert.equal(single.y, 0); assert.equal(single.opacity, 1);
+});
+
+test('name and rank fonts are increased by exactly thirty percent', () => {
+  assert.ok(Math.abs(CARD_NAME_SIZE / 17 - 1.3) < 1e-10);
+  assert.ok(Math.abs(CARD_RANK_SIZE / 12 - 1.3) < 1e-10);
+});
+
+require('./favorites-ui.test.cjs');
