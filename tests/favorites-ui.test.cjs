@@ -9,10 +9,10 @@ const { emptyDatabase } = require('../.build/core/store.js');
 const { parsePlayer } = require('../.build/core/model.js');
 
 function host() {
-  const slots = [], pendingEffects = [], cleanup = [], pendingAnimations = [], animationLog = [];
+  const slots = [], pendingEffects = [], cleanup = [], pendingAnimations = [], animationLog = [], scrollLog = [];
   let cursor = 0;
   const h = (type, props, ...children) => ({ type, props: { ...props, children: children.flat(Infinity) } });
-  const S = Object.fromEntries(['Button', 'HStack', 'Image', 'RoundedRectangle', 'Spacer', 'Text', 'VStack', 'ZStack'].map(name => [name, name]));
+  const S = Object.fromEntries(['Button', 'HStack', 'Image', 'RoundedRectangle', 'Spacer', 'Text', 'VStack', 'ScrollView', 'ScrollViewReader'].map(name => [name, name]));
   S.useRef = initial => { const i = cursor++; return slots[i] ?? (slots[i] = { current: initial }); };
   S.useObservable = initial => { const i = cursor++; return slots[i] ?? (slots[i] = { value: initial, setValue(v) { this.value = v; } }); };
   S.useState = initial => { const i = cursor++; if (!(i in slots)) slots[i] = typeof initial === 'function' ? initial() : initial; return [slots[i], value => { slots[i] = value; }]; };
@@ -34,8 +34,16 @@ function host() {
     exports, h, console,
     require: name => name === 'scripting' ? S : require('../.build/core/' + name.split('/').at(-1) + '.js'),
   }, { filename: 'favorites.tsx' });
+  const proxy = { scrollTo(id, anchor) { scrollLog.push({ id, anchor }); } };
+  function mountReaders(node) {
+    if (!node || typeof node !== 'object') return node;
+    if (node.type === 'ScrollViewReader') node.props.children = [node.props.children[0](proxy)];
+    node.props.children = (node.props.children ?? []).map(mountReaders);
+    return node;
+  }
   return {
-    render(props) { cursor = 0; const tree = exports.FavoritesDeck(props); while (pendingEffects.length) { const stop = pendingEffects.shift()(); if (typeof stop === 'function') cleanup.push(stop); } return tree; },
+    scrollLog,
+    render(props) { cursor = 0; const tree = mountReaders(exports.FavoritesDeck(props)); while (pendingEffects.length) { const stop = pendingEffects.shift()(); if (typeof stop === 'function') cleanup.push(stop); } return tree; },
     animationLog,
     finish() { pendingAnimations.splice(0).forEach(resolve => resolve()); },
     unmount() { cleanup.forEach(fn => fn()); },
@@ -76,74 +84,73 @@ async function expand(native, props) {
   return native.render(props);
 }
 
-test('back-card tap expands without querying; choosing waits for native centering before entering', async () => {
+test('back-card tap expands a native ScrollView without querying or intercepting its pan', async () => {
   const native = host(), opened = [], props = { ...fixture(), onOpen: name => opened.push(name) };
-  const before = native.render(props);
-  assert.equal(card(before, 'persona:2').props.disabled, false);
-  card(before, 'persona:2').props.action();
-  let tree = native.render(props);
-  assert.equal(opened.length, 0);
-  assert.equal(card(tree, 'persona:2').props.offset.y, 220);
-  assert.equal(card(tree, 'persona:2').props.disabled, true);
-  assert.equal(native.animationLog[0].criteria, 'removed');
-  native.finish(); await tick();
+  const initial = native.render(props);
+  assert.equal(nodes(initial).find(n => n.type === 'ScrollView').props.scrollDisabled, true);
+  const tree = await expand(native, props);
+  const scroller = nodes(tree).find(n => n.type === 'ScrollView');
+  assert.equal(scroller.props.axes, 'vertical'); assert.equal(scroller.props.scrollDisabled, false);
+  assert.ok(nodes(scroller).some(n => n.type === 'VStack' && n.props.spacing > 0 && n.props.scrollTargetLayout));
+  assert.ok(!nodes(tree).some(n => n.props.gesture || n.props.highPriorityGesture || n.props.onDragGesture));
+  assert.deepEqual(opened, []);
+});
+
+test('native scrollTo centers the selected stable key before entry, even if it is already focused', async () => {
+  const native = host(), opened = [], props = { ...fixture(), onOpen: name => opened.push(name) };
+  let tree = await expand(native, props);
+  nodes(tree).find(n => n.type === 'ScrollView').props.onScrollTargetVisibilityChange.onChanged(['persona:2']);
   tree = native.render(props);
   card(tree, 'persona:2').props.action();
   tree = native.render(props);
-  const chosen = card(tree, 'persona:2');
-  assert.equal(chosen.props.offset.y, 0); assert.equal(chosen.props.offset.x, 0);
-  assert.equal(chosen.props.rotationEffect, 0); assert.equal(chosen.props.scaleEffect, 1);
-  assert.equal(chosen.props.zIndex, 100); assert.equal(card(tree, 'persona:1').props.opacity, 0);
+  assert.deepEqual(native.scrollLog, [{ id: 'persona:2', anchor: 'center' }]);
+  assert.equal(native.animationLog.at(-1).criteria, 'removed');
+  assert.equal(card(tree, 'persona:2').props.rotationEffect, 0);
+  assert.equal(card(tree, 'persona:2').props.scaleEffect, 1);
+  assert.equal(card(tree, 'persona:1').props.opacity, 0);
   assert.deepEqual(opened, []);
-  card(tree, 'persona:3').props.action(); // repeated taps are locked out
+  card(tree, 'persona:3').props.action();
+  assert.equal(native.scrollLog.length, 1);
   native.finish(); await tick();
   assert.deepEqual(opened, ['Bravo']);
 });
 
-test('expanded drag tracks the finger, snaps without querying, and all fifty players are reachable', async () => {
+test('all fifty players are actual children of native scroll layout, including the final scroll target', async () => {
   const native = host(), opened = [], props = { ...fixture(), onOpen: name => opened.push(name) };
   for (let i = 4; i <= 50; i++) {
     const id = `persona:${i}`; props.db.favorites.push(id);
     props.db.players[id] = { id, name: `Player${i}`, lookupName: `Player${i}`, aliases: [], viewedAt: 1000 };
   }
-  let tree = await expand(native, props);
-  let gesture = nodes(tree).find(n => n.type === 'ZStack').props.highPriorityGesture;
-  gesture.changed({ translation: { width: 0, height: -110 } });
-  tree = native.render(props);
-  assert.equal(card(tree, 'persona:1').props.offset.y, -110);
-  gesture.ended({ velocity: { height: 0 } });
-  native.finish(); await tick();
-  tree = native.render(props);
-  assert.equal(card(tree, 'persona:2').props.offset.y, 0);
-  gesture = nodes(tree).find(n => n.type === 'ZStack').props.highPriorityGesture;
-  gesture.changed({ translation: { width: 0, height: -220 * 100 } });
-  gesture.ended({ velocity: { height: -1000 } });
-  native.finish(); await tick(); tree = native.render(props);
-  assert.equal(card(tree, 'persona:50').props.offset.y, 0);
-  assert.equal(nodes(tree).filter(n => typeof n.type === 'function' && n.type.name === 'FavoriteCard').length, 3);
-  assert.deepEqual(opened, []);
+  const tree = await expand(native, props);
+  const scroller = nodes(tree).find(n => n.type === 'ScrollView');
+  const layout = nodes(scroller).find(n => n.type === 'VStack' && n.props.scrollTargetLayout);
+  const rows = layout.props.children.filter(n => n?.type === 'Button');
+  assert.equal(rows.length, 50); assert.equal(new Set(rows.map(n => n.props.key)).size, 50);
+  assert.equal(rows.at(-1).props.key, 'persona:50');
+  assert.ok(rows.every(n => n.props.offset.y === 0 && n.props.opacity === 1));
+  assert.ok(layout.props.padding.vertical > 0); // native space to center first and last rows
+  assert.equal(scroller.props.scrollDisabled, false);
   card(tree, 'persona:50').props.action();
-  native.finish(); await tick();
-  assert.deepEqual(opened, ['Player50']);
+  assert.deepEqual(native.scrollLog, [{ id: 'persona:50', anchor: 'center' }]);
+  native.finish(); await tick(); assert.deepEqual(opened, ['Player50']);
 });
 
 test('unmount or changed favorites invalidates pending entry completion', async () => {
   for (const change of ['unmount', 'remove']) {
     const native = host(), opened = [], props = { ...fixture(), onOpen: name => opened.push(name) };
-    let tree = await expand(native, props);
+    const tree = await expand(native, props);
     card(tree, 'persona:2').props.action();
     if (change === 'unmount') native.unmount();
     else { props.db.favorites.splice(1, 1); native.render(props); }
-    native.finish(); await tick();
-    assert.deepEqual(opened, []);
+    native.finish(); await tick(); assert.deepEqual(opened, []);
   }
 });
 
-test('single favorite enters after animation without capturing list scroll gestures', async () => {
+test('single favorite can enter after native centering completion', async () => {
   const native = host(), opened = [], props = { ...fixture(), onOpen: name => opened.push(name) };
   props.db.favorites.splice(1);
   const tree = native.render(props);
-  assert.equal(nodes(tree).find(n => n.type === 'ZStack').props.highPriorityGesture, undefined);
   card(tree, 'persona:1').props.action(); assert.deepEqual(opened, []);
+  assert.deepEqual(native.scrollLog, [{ id: 'persona:1', anchor: 'center' }]);
   native.finish(); await tick(); assert.deepEqual(opened, ['Alpha']);
 });

@@ -1,8 +1,8 @@
-import { Animation, Button, DragGesture, HStack, Image, RoundedRectangle, Spacer, Text, VStack, ZStack, useEffect, useObservable, useRef, useState, withAnimation } from "scripting";
+import { Animation, Button, HStack, Image, RoundedRectangle, ScrollView, ScrollViewReader, ScrollViewProxy, Spacer, Text, VStack, useEffect, useObservable, useRef, useState, withAnimation } from "scripting";
 import { dateTime, decimal, divide, integer, percent, Stats } from "../core/model";
 import { getRank } from "../core/ranks";
 import { Database, FRESH_MS } from "../core/store";
-import { CARD_NAME_SIZE, CARD_RANK_SIZE, boundedPosition, deckLayers, draggedPosition, releasedPosition } from "../core/deck";
+import { CARD_NAME_SIZE, CARD_RANK_SIZE, cardAppearance, presentedCards } from "../core/deck";
 
 function RankAvatar({ rank }: { rank?: number }) {
   const info = getRank(rank);
@@ -60,25 +60,25 @@ export function FavoritesDeck({ db, now, large, onOpen, onRemove }: {
 }) {
   const ids = db.favorites.filter(id => !!db.players[id]);
   const focusedId = useObservable<string | undefined>(ids[0]);
-  const position = useObservable(0);
-  const expansion = useObservable(0);
+  const expanded = useObservable(false);
   const enteringId = useObservable<string | undefined>(undefined);
   const settling = useObservable(false);
+  const scroll = useRef<ScrollViewProxy | undefined>(undefined);
   const busy = useRef(false);
-  const dragOrigin = useRef<number | undefined>(undefined);
   const alive = useRef(true);
   const generation = useRef(0);
   useEffect(() => () => { alive.current = false; generation.current++; }, []);
   useEffect(() => {
-    generation.current++; busy.current = false; dragOrigin.current = undefined;
-    settling.setValue(false); enteringId.setValue(undefined); expansion.setValue(0);
-    position.setValue(Math.max(0, ids.indexOf(focusedId.value ?? "")));
+    generation.current++; busy.current = false;
+    settling.setValue(false); enteringId.setValue(undefined); expanded.setValue(false);
+    if (!ids.includes(focusedId.value ?? "")) focusedId.setValue(ids[0]);
   }, [ids.join("|")]);
   if (!ids.length) return <Text foregroundStyle="secondaryLabel">还没有常用玩家，查询后可收藏。</Text>;
-  const index = Math.round(boundedPosition(position.value, ids.length));
-  const player = db.players[ids[index]!]!;
-  const step = large ? 360 : 220;
-  const layers = deckLayers(ids, position.value, expansion.value, step, enteringId.value);
+  const currentId = ids.includes(focusedId.value ?? "") ? focusedId.value! : ids[0]!;
+  const player = db.players[currentId]!;
+  const shown = presentedCards(ids, currentId, expanded.value);
+  const height = large ? 640 : 420;
+  const cardHeight = large ? 400 : 240;
 
   async function animate(body: () => void, after?: () => void) {
     if (busy.current) return;
@@ -89,61 +89,62 @@ export function FavoritesDeck({ db, now, large, onOpen, onRemove }: {
       if (alive.current && token === generation.current) after?.();
     } catch (error) {
       console.error("卡片动画未完成", error);
-      if (alive.current && token === generation.current) {
-        enteringId.setValue(undefined);
-        position.setValue(Math.round(boundedPosition(position.value, ids.length)));
-      }
+      if (alive.current && token === generation.current) enteringId.setValue(undefined);
     } finally {
       if (alive.current && token === generation.current) { busy.current = false; settling.setValue(false); }
     }
   }
   function choose(id: string) {
-    if (busy.current || dragOrigin.current !== undefined) return;
-    const target = ids.indexOf(id);
-    if (target < 0) return;
-    // First tap on a back card fans out the whole deck, without querying anyone.
-    if (expansion.value < 0.5 && target !== index) {
-      void animate(() => expansion.setValue(1));
+    if (busy.current || !ids.includes(id)) return;
+    if (!expanded.value && id !== currentId) {
+      void animate(() => expanded.setValue(true));
       return;
     }
     const name = db.players[id]!.lookupName;
+    // Keep every row in the native scroll layout while fading, so scrollTo can
+    // center the same real card (including the first and last) before entering.
     void animate(() => {
-      enteringId.setValue(id); position.setValue(target); expansion.setValue(0);
-    }, () => { focusedId.setValue(id); onOpen(name); });
-  }
-  function finishDrag(velocity: number) {
-    if (dragOrigin.current === undefined || busy.current) return;
-    dragOrigin.current = undefined;
-    const target = releasedPosition(position.value, velocity, step, ids.length);
-    void animate(() => position.setValue(target), () => focusedId.setValue(ids[target]));
+      enteringId.setValue(id); focusedId.setValue(id);
+      scroll.current?.scrollTo(id, "center");
+    }, () => onOpen(name));
   }
   return <VStack alignment="leading" spacing={10}>
-    <ZStack alignment="center" frame={{ height: large ? 640 : 420 }} clipped contentShape={{ type: "rect" }}
-      highPriorityGesture={ids.length > 1 && expansion.value > 0.5 ? DragGesture({ minDistance: 10, coordinateSpace: "local" })
-        .onChanged(d => {
-          if (busy.current || Math.abs(d.translation.width) >= Math.abs(d.translation.height)) return;
-          if (dragOrigin.current === undefined) dragOrigin.current = position.value;
-          position.setValue(draggedPosition(dragOrigin.current, d.translation.width, d.translation.height, step, ids.length));
-        })
-        .onEnded(d => finishDrag(d.velocity.height)) : undefined}>
-      {layers.map(layer => <Button key={layer.id} buttonStyle="plain"
-        action={() => choose(layer.id)} disabled={settling.value}
-        accessibilityLabel={`${db.players[layer.id]!.name}${layer.index === index ? "，当前玩家" : ""}`}
-        accessibilityHint={expansion.value > 0.5 ? "轻点后卡片居中，再进入此玩家战绩。" : layer.index === index ? "轻点查看战绩。" : "轻点展开所有常用玩家卡片。"}
-        frame={{ maxWidth: "infinity", alignment: "leading" }}
-        offset={{ x: layer.x, y: layer.y }} scaleEffect={layer.scale}
-        rotationEffect={layer.rotation} opacity={layer.opacity} zIndex={layer.z}
-        shadow={{ color: "black", radius: layer.index === index ? 10 : 4, x: 0, y: 4 }}>
-        <FavoriteCard db={db} id={layer.id} now={now} large={large} />
-      </Button>)}
-    </ZStack>
+    <ScrollViewReader>{proxy => {
+      scroll.current = proxy;
+      return <ScrollView axes="vertical" frame={{ height }} scrollIndicator={expanded.value ? "visible" : "hidden"}
+        scrollDisabled={!expanded.value}
+        onScrollTargetVisibilityChange={expanded.value ? {
+          idType: "string", threshold: 0.7,
+          onChanged: visible => {
+            if (busy.current) return;
+            const id = (visible as string[]).find(value => ids.includes(value));
+            if (id) focusedId.setValue(id);
+          },
+        } : undefined}>
+        <VStack alignment="center" spacing={expanded.value ? 20 : -(cardHeight - 48)}
+          padding={{ vertical: (height - cardHeight) / 2, horizontal: 12 }} scrollTargetLayout>
+          {shown.map((id, slot) => {
+            const layer = cardAppearance(slot, expanded.value, id, currentId, enteringId.value);
+            return <Button key={id} buttonStyle="plain" action={() => choose(id)} disabled={settling.value}
+              accessibilityLabel={`${db.players[id]!.name}${id === currentId ? "，当前玩家" : ""}`}
+              accessibilityHint={expanded.value ? "上下滑动浏览，轻点此卡片居中后进入战绩。" : id === currentId ? "轻点查看战绩。" : "轻点展开常用玩家卡片。"}
+              frame={{ maxWidth: "infinity", alignment: "leading" }}
+              offset={{ x: layer.x, y: 0 }} scaleEffect={layer.scale}
+              rotationEffect={layer.rotation} opacity={layer.opacity} zIndex={layer.z}
+              shadow={{ color: "black", radius: id === currentId ? 10 : 4, x: 0, y: 4 }}>
+              <FavoriteCard db={db} id={id} now={now} large={large} />
+            </Button>;
+          })}
+        </VStack>
+      </ScrollView>;
+    }}</ScrollViewReader>
     <HStack>
-      <Text font="caption" foregroundStyle="secondaryLabel" accessibilityLabel={`第 ${index + 1} 位，共 ${ids.length} 位`}>{`${index + 1} / ${ids.length}`}</Text>
+      <Text font="caption" foregroundStyle="secondaryLabel">{`共 ${ids.length} 位玩家`}</Text>
       <Spacer />
-      {ids.length > 1 && <Button title={expansion.value > 0.5 ? "收起卡组" : "展开卡组"} buttonStyle="borderless" frame={{ minHeight: 44 }} disabled={settling.value}
-        action={() => { dragOrigin.current = undefined; void animate(() => { position.setValue(index); expansion.setValue(expansion.value > 0.5 ? 0 : 1); }); }} />}
+      {ids.length > 1 && <Button title={expanded.value ? "收起卡组" : "展开卡组"} buttonStyle="borderless" frame={{ minHeight: 44 }} disabled={settling.value}
+        action={() => void animate(() => expanded.setValue(!expanded.value))} />}
     </HStack>
-    <Text font="caption" foregroundStyle="secondaryLabel">{expansion.value > 0.5 ? "上下滑动浏览 · 点选后居中进入" : "点击后排卡片展开 · 点击当前玩家进入"}</Text>
-    <Button title="取消收藏" buttonStyle="borderless" frame={{ minHeight: 44 }} disabled={settling.value} action={() => onRemove(player.id)} />
+    <Text font="caption" foregroundStyle="secondaryLabel">{expanded.value ? "上下滑动浏览 · 点选后居中进入" : "点击后排卡片展开 · 点击当前玩家进入"}</Text>
+    <Button title={`取消收藏 ${player.name}`} buttonStyle="borderless" frame={{ minHeight: 44 }} disabled={settling.value} action={() => onRemove(player.id)} />
   </VStack>;
 }
