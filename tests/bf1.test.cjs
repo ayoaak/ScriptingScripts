@@ -4,8 +4,6 @@ const { createApi, retryAt } = require('../.build/core/api.js');
 const { parsePlayer, QueryError, divide, lookupKey } = require('../.build/core/model.js');
 const { PlayerController } = require('../.build/core/controller.js');
 const { restore, FRESH_MS } = require('../.build/core/store.js');
-const { RANK_BANDS, getRank, moveCard, swipeDirection } = require('../.build/core/ranks.js');
-const { presentedCards, cardAppearance, CARD_NAME_SIZE, CARD_RANK_SIZE } = require('../.build/core/deck.js');
 
 // These are intentionally synthetic accounts, never sent to a live API.
 const payload = (name = 'PlayerA', id = '100', kills = 10) => parsePlayer({
@@ -209,62 +207,3 @@ test('disposing while a request runs prevents late persistence and queued reques
   a.resolve(payload()); await qa;
   assert.equal(writes, 0); assert.equal(calls, 1);
 });
-
-test('all 151 BF1 levels map to the wiki badge bands and GitHub URLs', () => {
-  for (let rank = 0; rank <= 150; rank++) {
-    const info = getRank(rank);
-    assert.ok(info); assert.equal(info.level, rank);
-    assert.match(info.imageUrl, /^https:\/\/raw\.githubusercontent\.com\/ayoaak\/ScriptingScripts\/main\/Battlefield1Stats\/assets\/ranks\/rank-\d{3}\.png$/);
-    const matching = RANK_BANDS.filter(b => rank >= b.min && rank <= b.max);
-    assert.equal(matching.length, 1);
-    assert.ok(require('node:fs').existsSync(`Battlefield1Stats/assets/ranks/${info.file}`));
-  }
-  assert.equal(getRank(58).title, '少尉 IX');
-  assert.equal(getRank(58).english, 'Second Lieutenant IX');
-  assert.equal(getRank(58).file, 'rank-050.png');
-  assert.equal(getRank(149).english, 'General X');
-  assert.equal(getRank(150).english, 'Five-Star General');
-  for (const value of [undefined, -1, 151, 58.5, NaN, Infinity]) assert.equal(getRank(value), undefined);
-});
-
-test('vertical card changes wrap correctly and ignore taps or sideways scrolls', () => {
-  assert.equal(swipeDirection(0, -60), 1); assert.equal(swipeDirection(0, 60), -1);
-  assert.equal(swipeDirection(3, -20, -600), 1);
-  for (const values of [[0, 0], [0, 10], [80, 50], [3, -20, 600], [NaN, 60]]) assert.equal(swipeDirection(...values), 0);
-  assert.equal(moveCard(0, 3, -1), 2); assert.equal(moveCard(2, 3, 1), 0);
-  assert.equal(moveCard(0, 1, 1), 0); assert.equal(moveCard(0, 0, 1), 0);
-});
-
-test('collapsed deck has three unique real cards and expanded native layout contains every favorite', () => {
-  for (let count = 0; count <= 50; count++) {
-    const ids = Array.from({ length: count }, (_, i) => `player-${i}`);
-    const focus = ids.at(-1);
-    const closed = presentedCards(ids, focus, false);
-    assert.ok(closed.length <= 3); assert.equal(new Set(closed).size, closed.length);
-    if (count) assert.equal(closed[0], focus);
-    assert.deepEqual(presentedCards(ids, focus, true), ids);
-  }
-  assert.deepEqual(presentedCards(['A', 'B'], 'deleted', false), ['A', 'B']);
-});
-
-test('expanded cards remain fully visible regardless of their distance from the old focus', () => {
-  for (let i = 0; i < 50; i++) {
-    const style = cardAppearance(i, true, `player-${i}`, 'player-0');
-    assert.equal(style.opacity, 1); assert.ok(style.scale > 0.9);
-  }
-});
-
-test('entry flattens the chosen card and fades others without removing native scroll targets', () => {
-  const ids = ['A', 'B', 'C'];
-  assert.deepEqual(presentedCards(ids, 'B', true), ids);
-  const chosen = cardAppearance(1, true, 'B', 'B', 'B');
-  assert.deepEqual([chosen.x, chosen.rotation, chosen.scale, chosen.opacity, chosen.z], [0, 0, 1, 1, 100]);
-  assert.equal(cardAppearance(0, true, 'A', 'B', 'B').opacity, 0);
-});
-
-test('name and rank fonts are increased by exactly thirty percent', () => {
-  assert.ok(Math.abs(CARD_NAME_SIZE / 17 - 1.3) < 1e-10);
-  assert.ok(Math.abs(CARD_RANK_SIZE / 12 - 1.3) < 1e-10);
-});
-
-require('./favorites-ui.test.cjs');

@@ -1,6 +1,6 @@
 # 战地战绩查询
 
-版本 0.4.1，待用户真机验收。[一键添加到 Scripting](https://scripting.fun/import_scripts?urls=%5B%22https%3A%2F%2Fraw.githubusercontent.com%2Fayoaak%2FScriptingScripts%2Fmain%2FBattlefield1Stats%2FBattlefield1Stats.scripting%22%5D) · [直接下载安装包](https://raw.githubusercontent.com/ayoaak/ScriptingScripts/main/Battlefield1Stats/Battlefield1Stats.scripting) · [验收清单](../docs/bf1-validation.md)。
+版本 0.4.2，待用户真机验收。[一键添加到 Scripting](https://scripting.fun/import_scripts?urls=%5B%22https%3A%2F%2Fraw.githubusercontent.com%2Fayoaak%2FScriptingScripts%2Fmain%2FBattlefield1Stats%2FBattlefield1Stats.scripting%22%5D) · [直接下载安装包](https://raw.githubusercontent.com/ayoaak/ScriptingScripts/main/Battlefield1Stats/Battlefield1Stats.scripting) · [验收清单](../docs/bf1-validation.md)。
 
 Scripting 原生 TSX 脚本，查询 stats.2788.pro 提供的战地一数据。`konekoroku` 为输入示例，首次打开不会自动查询或收藏。
 
@@ -12,8 +12,7 @@ Scripting 原生 TSX 脚本，查询 stats.2788.pro 提供的战地一数据。`
 - 请求串行执行，同一玩家在途去重，队列只保留最后一次选择；迟到响应不会切换当前页面。
 - 处理 400、404、429、超时、非 JSON 错误响应、数据缺失和保存失败。
 - 原生 List / NavigationStack / Picker；支持条件满足时采用 Liquid Glass 按钮和容器，系统语义颜色跟随深浅色。
-- 常用玩家以真实卡片旋转叠放；点击后排卡片散开卡组，展开后的原生 ScrollView 上下浏览，点选后先居中再进入详情；无上下切换按钮；卡片展示玩家 ID、军衔/等级、总击杀、KD、KPM、胜率。
-- 真实 BF1 军衔徽章从本仓库 GitHub 图片地址加载，覆盖 0–150 级；加载失败显示等级占位，不放入安装包。
+- 常用玩家恢复为普通原生列表：显示玩家 ID、等级及获取时间，点击直接查询，并可单独取消收藏；随首页统一滚动。
 - 自定义 BF 图标已移除数字 6；首页查询按钮缩小并居中。
 
 ## 文件
@@ -26,10 +25,7 @@ core/model.ts        校验、归一化、数值格式
 core/api.ts          HTTP 状态、超时和 Retry-After
 core/store.ts        私有存储、恢复与容量规则
 core/controller.ts   玩家身份、选择、队列、缓存与收藏
-core/ranks.ts        军衔范围及 GitHub 徽章地址
-core/deck.ts         堆叠/展开可见玩家与卡片外观
 ui/app.tsx           查询首页、战绩页及列表
-ui/favorites.tsx     原生 ScrollView 卡组及居中进入动画
 ui/components.tsx    指标与装备统计
 ui/details.tsx       玩家、对局、装备详情
 ```
@@ -44,7 +40,7 @@ ui/details.tsx       玩家、对局、装备详情
 
 可点击“一键添加”在 Scripting 中导入，也可下载 `.scripting` 文件后交给 Scripting 打开。包使用与本仓库已有脚本一致的 ZIP 内容格式，包含全部运行源码。
 
-仓库根目录执行 `npm run package:bf1` 会生成 `Battlefield1Stats/Battlefield1Stats.scripting` 及相同内容的 `dist/bf1.zip`，其顶层为 script.json、index.tsx、core/、ui/、assets/icon.png 等。`assets/ranks/` 整个目录排除在包外，徽章仅由 GitHub 在线加载。
+仓库根目录执行 `npm run package:bf1` 会生成 `Battlefield1Stats/Battlefield1Stats.scripting` 及相同内容的 `dist/bf1.zip`，其顶层为 script.json、index.tsx、core/、ui/、assets/icon.png 等。`assets/ranks/` 整个目录排除在包外。卡片版本的徽章素材留在仓库历史目录中，当前普通列表不加载徽章。
 
 也可在 Scripting 脚本的远程来源设置使用以下项目子目录：
 

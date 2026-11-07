@@ -14,7 +14,7 @@ https://static.wikia.nocookie.net/battlefield/images/e/e6/Site-logo.png/revision
 
 `ranks/sources.json` 保存每个等级范围、原图片名及图片 URL。17 个原始徽章对应等级 0–150；只下载原始 PNG 格式，不重绘军衔图像。中文军衔名是展示译名，英语军衔及等级范围来自该页面。
 
-徽章 PNG 只存于 GitHub 仓库。安装包排除整个 `assets/ranks/` 目录，运行时通过 `raw.githubusercontent.com/ayoaak/ScriptingScripts/main/Battlefield1Stats/assets/ranks/` 获取。加载失败时界面显示带等级的盾牌占位，不将占位符称为真实军衔徽章。
+当前普通列表不加载徽章。以下在线加载说明供 0.2.0–0.4.1 历史卡片版本参考：徽章 PNG 只存于 GitHub 仓库，安装包排除整个 `assets/ranks/` 目录，历史版本运行时通过 `raw.githubusercontent.com/ayoaak/ScriptingScripts/main/Battlefield1Stats/assets/ranks/` 获取。加载失败时界面显示带等级的盾牌占位，不将占位符称为真实军衔徽章。
 
 军衔图像及 Battlefield 商标的相关权利属于原权利人；项目为个人查询脚本，不代表官方产品。
 

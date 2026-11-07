@@ -5,7 +5,6 @@ import { dateTime, decimal, divide, duration, Equipment, integer, PlayerData } f
 import { FRESH_MS } from "../core/store";
 import { Acquisition, StatRows, Summary } from "./components";
 import { EquipmentDetail, Profile, ReportDetail } from "./details";
-import { FavoritesDeck } from "./favorites";
 
 type Tab = "overview" | "weapons" | "vehicles" | "reports";
 type Sort = "kills" | "kpm" | "accuracy";
@@ -76,7 +75,7 @@ export function App({ controller }: { controller: PlayerController }) {
   const data = view.cache?.payload;
   const favorite = !!selectedId && view.db.favorites.includes(selectedId);
   const stale = !!view.cache && (now < view.cache.fetchedAt || now - view.cache.fetchedAt >= FRESH_MS);
-  const playerRows = (ids: string[]) => ids.map(id => {
+  const playerRows = (ids: string[], kind: "favorite" | "recent") => ids.map(id => {
     const player = view.db.players[id]; if (!player) return null;
     const cache = view.db.caches[id];
     return <VStack key={id} alignment="leading" spacing={6}>
@@ -86,7 +85,7 @@ export function App({ controller }: { controller: PlayerController }) {
           {cache && <Text font="caption" foregroundStyle="secondaryLabel">{`Rank ${integer(cache.payload.stats.rank)} · 获取于 ${dateTime(cache.fetchedAt)}`}</Text>}
         </VStack>
       </Button>
-      <Button title="移除历史" buttonStyle="borderless" action={() => controller.removeRecent(id)} />
+      <Button title={kind === "favorite" ? "取消收藏" : "移除历史"} buttonStyle="borderless" action={() => kind === "favorite" ? controller.removeFavorite(id) : controller.removeRecent(id)} />
     </VStack>;
   });
   return <NavigationStack>
@@ -115,10 +114,10 @@ export function App({ controller }: { controller: PlayerController }) {
             {!input.trim() && view.error && <Text foregroundStyle="systemRed">{view.error}</Text>}
           </Section>
           <Section header={<Text>常用玩家 · {view.db.favorites.length}/50</Text>}>
-            <FavoritesDeck db={view.db} now={now} large={large} onOpen={query} onRemove={id => controller.removeFavorite(id)} />
+            {!view.db.favorites.length ? <Text foregroundStyle="secondaryLabel">还没有常用玩家，查询后可收藏。</Text> : playerRows(view.db.favorites, "favorite")}
           </Section>
           <Section header={<Text>最近查询</Text>}>
-            {!view.db.recent.length ? <Text foregroundStyle="secondaryLabel">成功查询的玩家会显示在这里。</Text> : playerRows(view.db.recent)}
+            {!view.db.recent.length ? <Text foregroundStyle="secondaryLabel">成功查询的玩家会显示在这里。</Text> : playerRows(view.db.recent, "recent")}
           </Section>
         </S.Group> : <S.Group>
           <Section>
